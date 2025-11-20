@@ -4,9 +4,9 @@
     "runArgs": [
         "--network=host",
         "--label", "com.centurylinklabs.watchtower.enable=false",
-        "--env", "CONTAINER_NAME=vscode-dev-container_docker-lmelp"
+        "--env", "CONTAINER_NAME=vscode-dev-container_docker-lmelp"  // pragma: allowlist secret
     ],
-    
+
     // Variables d'environnement
     "containerEnv": {
         "PROJECT_NAME": "docker-lmelp",
@@ -16,7 +16,7 @@
         "UV_VENV_CLEAR": "1",
         "TZ": "${localEnv:TZ}"
     },
-    
+
     "customizations": {
         "vscode": {
             "extensions": [
@@ -38,24 +38,25 @@
                 "GitHub.copilot-chat",
                 "GitHub.copilot",
                 "dbaeumer.vscode-eslint",
-                "ms-python.autopep8"
+                "ms-python.autopep8",
+                "anthropic.claude-code"
             ],
             "settings": {
                 // Configuration Python
                 "python.defaultInterpreterPath": "./.venv/bin/python",
                 "python.terminal.activateEnvironment": true,
-				"python.terminal.activateEnvInCurrentTerminal": true,                
+				"python.terminal.activateEnvInCurrentTerminal": true,
                 "python.analysis.autoImportCompletions": true,
                 "python.analysis.typeCheckingMode": "basic",
 				"terminal.integrated.env.linux": {
 					"VIRTUAL_ENV": "/workspaces/docker-lmelp/.venv",
 					"PATH": "/workspaces/docker-lmelp/.venv/bin:${env:PATH}"
 				},
-                                
+
                 // Configuration générale
                 "editor.minimap.enabled": true,
                 "editor.rulers": [100],
-                
+
                 // Exclusions pour améliorer les performances
                 "files.exclude": {
                     "**/__pycache__": true,
@@ -73,7 +74,7 @@
             }
         }
     },
-    
+
     // Features devcontainer
     "features": {
         "ghcr.io/va-h/devcontainers-features/uv:1": {},
@@ -86,21 +87,21 @@
             "version": "lts"
         }
     },
-    
+
     // Montages pour hériter de la config git du host et de la timezone
     "mounts": [
         "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly",
         "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly",
         "source=/etc/localtime,target=/etc/localtime,type=bind,consistency=cached,readonly"
     ],
-       
+
     // Configuration du shell et de l'environnement
     "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
     "postStartCommand": "echo '🚀 docker-lmelp - Environnement prêt!'",
-    
+
     // Utilisateur non-root pour la sécurité
     "remoteUser": "vscode",
-    
+
     // Optimisations de performance
     "shutdownAction": "none"
 }
