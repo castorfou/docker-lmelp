@@ -1,0 +1,18 @@
+{
+  "template": "https://github.com/castorfou/PyFoundry.git",
+  "commit": "a277c482acf03790d9c9f1a32840710dc21b3dd9",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "docker-lmelp",
+      "project_slug": "docker-lmelp",
+      "description": "proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso",
+      "python_version": "3.11",
+      "github_username": "castor_fou",
+      "use_node": "y",
+      "_template": "https://github.com/castorfou/PyFoundry.git",
+      "_commit": "a277c482acf03790d9c9f1a32840710dc21b3dd9"
+    }
+  },
+  "directory": null
+}

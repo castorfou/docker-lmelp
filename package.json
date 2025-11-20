@@ -1,0 +1,13 @@
+{
+  "name": "docker-lmelp",
+  "version": "1.0.0",
+  "description": "proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso",
+  "scripts": {
+    "dev": "echo 'Add your development scripts here'",
+    "build": "echo 'Add your build scripts here'"
+  },
+  "keywords": ["data-science", "python", "node"],
+  "author": "castor_fou",
+  "license": "MIT",
+  "devDependencies": {}
+}
