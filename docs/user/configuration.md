@@ -186,9 +186,14 @@ BACKUP_PATH=./data/backups
 # Fichiers audio LMELP
 AUDIO_PATH=./data/audios
 
-# Logs applicatifs
+# Logs applicatifs (pour logs LMELP app, pas logs Docker)
 LOG_PATH=./data/logs
 ```
+
+**Note sur les logs** :
+- `LOG_PATH` est monté dans le container LMELP pour d'éventuels logs applicatifs
+- Les logs Docker (stdout/stderr) sont gérés par Docker et accessibles via `docker compose logs`
+- Configuration de rotation : 10MB max par fichier, 3 fichiers conservés
 
 **Chemins personnalisés** :
 

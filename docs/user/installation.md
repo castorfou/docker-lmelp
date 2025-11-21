@@ -92,6 +92,32 @@ Voir le [guide Portainer](portainer.md) pour déployer via l'interface web.
 
 Une fois les services démarrés, vérifier leur état.
 
+#### Consulter les logs
+
+Les logs des services sont gérés par Docker et accessibles via les commandes Docker Compose :
+
+```bash
+# Voir les logs de tous les services
+docker compose logs
+
+# Suivre les logs en temps réel
+docker compose logs -f
+
+# Logs d'un service spécifique
+docker compose logs lmelp
+docker compose logs backend
+docker compose logs frontend
+docker compose logs mongo
+
+# Voir les dernières lignes
+docker compose logs --tail=100 lmelp
+
+# Logs depuis une date/heure
+docker compose logs --since 2024-01-20T15:00:00 lmelp
+```
+
+**Note** : Le répertoire `data/logs/` est monté dans le container LMELP pour d'éventuels logs applicatifs, mais les logs Docker sont stockés séparément par Docker lui-même (dans `/var/lib/docker/containers/`). La configuration actuelle limite les logs à 10MB par fichier avec rotation sur 3 fichiers maximum.
+
 #### Vérification automatique avec Health Checks
 
 Docker Compose inclut des health checks automatiques pour tous les services. Pour voir l'état de santé :
