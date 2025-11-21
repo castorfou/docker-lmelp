@@ -1,6 +1,8 @@
 # docker-lmelp
 
-proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso
+Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://github.com/castorfou/lmelp) avec MongoDB, Back-Office, et système de backup automatisé.
+
+**Déployable facilement** via Docker Compose ou Portainer sur NAS (Synology, QNAP) ou PC personnel.
 
 [![CI](https://github.com/castorfou/docker-lmelp/actions/workflows/ci.yml/badge.svg)](https://github.com/castorfou/docker-lmelp/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/castorfou/docker-lmelp/branch/main/graph/badge.svg)](https://codecov.io/gh/castorfou/docker-lmelp)
@@ -8,56 +10,198 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
-## Installation
+## ✨ Fonctionnalités
 
-Ce projet utilise **uv** pour la gestion des dépendances et des environnements Python.
+- **Stack complète** : MongoDB + LMELP App + Back-Office (Frontend + Backend)
+- **Backups automatisés** : Sauvegardes hebdomadaires de MongoDB avec rétention configurable
+- **Scripts de restauration** : Restauration facile depuis n'importe quel backup
+- **Prêt pour Portainer** : Déploiement en un clic via interface graphique
+- **Mode host network** : Configuration réseau simplifiée
+- **Watchtower ready** : Mises à jour automatiques des images Docker
+- **Multi-LLM** : Support de plusieurs fournisseurs (Gemini, OpenAI, Azure, LiteLLM)
 
-### Avec VS Code + Devcontainer (Recommandé)
+## 🚀 Démarrage rapide
 
-Si vous avez Docker et VS Code :
+### Prérequis
 
-```bash
-# 1. Authentifiez-vous à ghcr.io (si nécessaire)
-# Créez un Personal Access Token : https://github.com/settings/tokens/new
-# Permissions : read:packages
-docker login ghcr.io -u VOTRE_USERNAME
+- Docker et Docker Compose installés
 
-# 2. Ouvrez dans VS Code
-code .
-# VS Code proposera "Reopen in Container"
-```
 
-## Structure du projet
-
-```
-├── src/           # Code source du projet
-├── data/          # Données du projet
-│   ├── raw/       # Données brutes
-│   └── processed/ # Données traitées
-├── notebooks/     # Notebooks Jupyter
-└── pyproject.toml # Configuration du projet
-```
-
-## Documentation
-
-📚 La documentation complète est disponible sur [castorfou.github.io/docker-lmelp](https://castorfou.github.io/docker-lmelp)
-
-### Activer GitHub Pages (première fois)
-
-Pour déployer la documentation, activez GitHub Pages :
+### Installation
 
 ```bash
-# Via gh CLI (recommandé)
-gh api repos/castorfou/docker-lmelp/pages \
-  -X POST \
-  -f build_type=workflow
+# 1. Cloner le repository
+git clone https://github.com/castorfou/docker-lmelp.git
+cd docker-lmelp
 
-# Ou manuellement :
-# 1. Allez dans Settings > Pages
-# 2. Source : sélectionnez "GitHub Actions"
+# 2. Créer la structure des volumes
+mkdir -p data/{mongodb,backups,audios,logs}
+
+# 3. Configurer les variables d'environnement
+cp .env.example .env
+nano .env  # Ajouter au moins GEMINI_API_KEY ou OPENAI_API_KEY
+
+# 4. Démarrer la stack
+docker compose up -d
+
+# 5. Vérifier l'état (attendez que tous les services soient "healthy")
+docker compose ps
 ```
 
-### Générer localement
+**Note** : Les services incluent des health checks automatiques. Attendez 30-60 secondes pour que tous les services affichent **"Up (healthy)"** au lieu de simplement "Up".
+
+### Accès aux services
+
+- **LMELP App** (Streamlit) : http://localhost:8501
+- **Back-Office Frontend** : http://localhost:8080
+- **Back-Office API** : http://localhost:8000
+- **MongoDB** : localhost:27018
+
+## 📦 Services inclus
+
+| Service | Image | Port | Description |
+|---------|-------|------|-------------|
+| **mongo** | mongo:latest | 27018 | Base de données MongoDB |
+| **lmelp** | ghcr.io/castorfou/lmelp:latest | 8501 | Application Streamlit |
+| **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
+| **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web |
+| **mongo-backup** | mongo:latest | - | Service de backup automatique |
+
+## 📚 Documentation complète
+
+La documentation complète est disponible sur **[castorfou.github.io/docker-lmelp](https://castorfou.github.io/docker-lmelp)**
+
+- **[Installation](https://castorfou.github.io/docker-lmelp/user/installation/)** : Guide d'installation détaillé
+- **[Configuration](https://castorfou.github.io/docker-lmelp/user/configuration/)** : Variables d'environnement et personnalisation
+- **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
+- **[Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)** : Installation via interface graphique
+
+## 🔧 Configuration minimale
+
+Fichier `.env` minimal pour démarrer :
+
+```bash
+# 1. Au moins une clé LLM requise (choisir selon votre préférence)
+GEMINI_API_KEY=votre_cle_gemini_ici
+# OU
+OPENAI_API_KEY=votre_cle_openai_ici
+
+# 2. Configuration MongoDB (valeurs par défaut fonctionnelles)
+# ⚠️ Les variables sont dupliquées pour compatibilité entre images
+MONGO_HOST=localhost
+MONGO_PORT=27018
+MONGO_DATABASE=masque_et_la_plume
+DB_HOST=localhost
+DB_NAME=masque_et_la_plume
+MONGODB_URL=mongodb://localhost:27018/masque_et_la_plume
+
+# Chemins des volumes (valeurs par défaut)
+MONGO_DATA_PATH=./data/mongodb
+BACKUP_PATH=./data/backups
+AUDIO_PATH=./data/audios
+LOG_PATH=./data/logs
+```
+
+**Note** : Les variables MongoDB apparaissent plusieurs fois car différentes images Docker utilisent des noms différents. À terme, cela sera rationalisé dans les applications sources.
+
+## 🗂️ Structure du projet
+
+```
+docker-lmelp/
+├── docker-compose.yml      # Configuration Docker Compose
+├── .env.example            # Template de configuration
+├── scripts/                # Scripts de gestion MongoDB
+│   ├── backup_mongodb.sh   # Backup avec rétention
+│   ├── restore_mongodb.sh  # Restauration depuis backup
+│   └── init_mongo.sh       # Initialisation base de données
+├── cron/                   # Configuration cron
+│   └── backup-cron         # Planification backups hebdomadaires
+├── data/                   # Données persistantes (non versionnées)
+│   ├── mongodb/            # Données MongoDB
+│   ├── backups/            # Backups MongoDB
+│   ├── audios/             # Fichiers audio LMELP
+│   └── logs/               # Logs applicatifs
+└── docs/                   # Documentation MkDocs
+    └── user/               # Documentation utilisateur
+        ├── installation.md
+        ├── configuration.md
+        ├── backup-restore.md
+        └── portainer.md
+```
+
+## 🔄 Gestion des backups
+
+### Backups automatiques
+
+Par défaut : **chaque dimanche à 2h du matin**, rétention de **7 semaines**.
+
+```bash
+# Voir les backups existants
+ls -lh data/backups/
+
+# Forcer un backup manuel
+docker exec lmelp-mongo-backup /scripts/backup_mongodb.sh
+```
+
+### Restauration
+
+```bash
+# Lister les backups disponibles
+docker exec -it lmelp-mongo-backup /scripts/restore_mongodb.sh
+
+# Restaurer un backup spécifique
+docker exec -it lmelp-mongo-backup /scripts/restore_mongodb.sh backup_2024-11-21_02-00-00
+```
+
+Voir la [documentation complète des backups](https://castorfou.github.io/docker-lmelp/user/backup-restore/) pour plus de détails.
+
+## 🐳 Déploiement Portainer
+
+Portainer fournit une interface graphique pour gérer la stack :
+
+1. Accéder à Portainer : http://localhost:9000
+2. **Stacks** → **+ Add stack**
+3. Nom : `lmelp-stack`
+4. Repository : `https://github.com/castorfou/docker-lmelp`
+5. Upload du fichier `.env`
+6. Cliquer sur **Deploy the stack**
+
+Guide complet : [Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)
+
+## 🛠️ Commandes utiles
+
+```bash
+# Démarrer la stack
+docker compose up -d
+
+# Voir l'état des services
+docker compose ps
+
+# Consulter les logs
+docker compose logs -f
+
+# Arrêter la stack
+docker compose down
+
+# Mettre à jour les images
+docker compose pull && docker compose up -d
+
+# Redémarrer un service spécifique
+docker compose restart lmelp
+```
+
+## 🤝 Contribution
+
+Contributions bienvenues ! Pour contribuer :
+
+1. Fork le repository
+2. Créer une branche feature : `git checkout -b feature/ma-fonctionnalite`
+3. Installer les hooks pre-commit : `pre-commit install`
+4. Commiter les changements : `git commit -m 'feat: ajouter fonctionnalité'`
+5. Pusher la branche : `git push origin feature/ma-fonctionnalite`
+6. Ouvrir une Pull Request
+
+### Développement de la documentation
 
 ```bash
 # Installer les dépendances de documentation
@@ -66,25 +210,20 @@ uv sync --extra docs
 # Prévisualiser localement
 uv run mkdocs serve
 
-# La documentation sera accessible à l'URL affichée dans les logs
-# Example: http://127.0.0.1:8000/docker-lmelp/
+# La documentation sera accessible à http://127.0.0.1:8000/docker-lmelp/
 ```
 
-!!! note "URL locale"
-    Comme `site_url` est configuré pour GitHub Pages avec un chemin de base,
-    MkDocs servira la documentation avec ce même chemin en local.
-    Accédez à l'URL complète affichée dans les logs (avec le chemin `/docker-lmelp/`).
+## 📄 Licence
 
-    Si vous souhaitez servir sans chemin de base pour le développement local,
-    commentez temporairement la ligne `site_url` dans `mkdocs.yml`.
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-## Usage
+## 🔗 Liens utiles
 
-Décrivez ici comment utiliser votre projet.
+- **Projet LMELP** : https://github.com/castorfou/lmelp
+- **Back-Office LMELP** : https://github.com/castorfou/back-office-lmelp
+- **Documentation complète** : https://castorfou.github.io/docker-lmelp
+- **Issues** : https://github.com/castorfou/docker-lmelp/issues
 
-## Contribution
+## ⭐ Support
 
-1. Installez les hooks pre-commit : `pre-commit install`
-2. Créez une branche pour votre fonctionnalité
-3. Commitez vos changements
-4. Ouvrez une Pull Request
+Si ce projet vous est utile, n'hésitez pas à lui donner une étoile ⭐ sur GitHub !
