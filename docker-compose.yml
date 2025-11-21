@@ -153,6 +153,7 @@ services:
     volumes:
       - ${BACKUP_PATH:-./data/backups}:/backups
       - ./scripts/backup_mongodb.sh:/scripts/backup_mongodb.sh:ro
+      - ./scripts/restore_mongodb.sh:/scripts/restore_mongodb.sh:ro
       - ./cron/backup-cron:/etc/cron.d/backup-cron:ro
     environment:
       - MONGO_HOST=mongo

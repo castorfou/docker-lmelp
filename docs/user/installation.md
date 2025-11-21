@@ -64,10 +64,10 @@ Si vous avez un backup existant à restaurer, placez-le dans `data/backups/` :
 
 ```bash
 # Exemple : copier un backup existant
-cp -r /path/to/backup_2024-11-20_10-00-00 data/backups/
+cp -r /path/to/backup_2025-10-07_04-38-25 data/backups/
 ```
 
-Le script d'initialisation détectera automatiquement le backup le plus récent au premier démarrage.
+**Note** : La restauration se fait manuellement après le démarrage de la stack. Voir [Restauration depuis un backup](backup-restore.md#restauration-depuis-un-backup).
 
 ### Étape 4 : Démarrer la stack
 
