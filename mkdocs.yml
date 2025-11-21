@@ -1,0 +1,57 @@
+site_name: docker-lmelp
+site_description: proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso
+site_url: https://castorfou.github.io/docker-lmelp
+use_directory_urls: true
+
+# Exclude internal directories from documentation
+exclude_docs: |
+  claude/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - toc.follow
+
+nav:
+  - Accueil: index.md
+  - Documentation Utilisateur:
+    - user/README.md
+  - Documentation Développeur:
+    - dev/README.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago

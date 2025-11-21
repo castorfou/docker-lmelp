@@ -11,6 +11,7 @@
     "containerEnv": {
         "PROJECT_NAME": "docker-lmelp",
         "PROJECT_SLUG": "docker-lmelp",
+        "GITHUB_USERNAME": "castorfou",
         "PYTHON_VERSION": "3.11",
         "PYTHONPATH": "/workspaces/docker-lmelp/src",
         "UV_VENV_CLEAR": "1",
