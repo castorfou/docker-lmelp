@@ -58,13 +58,16 @@ MONGO_DATABASE=masque_et_la_plume
 
 **Note** : La stack utilise un réseau Docker bridge. Les services communiquent entre eux via les noms de services Docker (ex: `mongo`, `backoffice-backend`). Pas besoin de configurer les URLs de connexion manuellement.
 
-### Étape 3 : Initialiser la base de données (optionnel)
+### Étape 3 : Initialiser la base de données
 
 Si vous avez un backup existant à restaurer, placez-le dans `data/backups/` :
 
 ```bash
 # Exemple : copier un backup existant
 cp -r /path/to/backup_2025-10-07_04-38-25 data/backups/
+
+# exemple
+cp -r ~/git/lmelp/db/masque_et_la_plume/backup_2025-11-21_19-41-58 ~/git/docker-lmelp/data/backups/
 ```
 
 **Note** : La restauration se fait manuellement après le démarrage de la stack. Voir [Restauration depuis un backup](backup-restore.md#restauration-depuis-un-backup).
@@ -129,7 +132,7 @@ docker compose ps
 # Sortie attendue :
 # NAME                        STATUS
 # lmelp-mongo                 Up (healthy)
-# lmelp-app                   Up (healthy)
+# lmelp-frontoffice           Up (healthy)
 # lmelp-backoffice-backend    Up (healthy)
 # lmelp-backoffice-frontend   Up (healthy)
 # lmelp-mongo-backup          Up

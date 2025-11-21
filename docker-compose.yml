@@ -30,7 +30,7 @@ services:
   # LMELP Application (Streamlit)
   lmelp:
     image: ghcr.io/castorfou/lmelp:latest
-    container_name: lmelp-app
+    container_name: lmelp-frontoffice
     restart: unless-stopped
     ports:
       - "${LMELP_PORT:-8501}:8501"
@@ -166,7 +166,8 @@ services:
       apt-get install -y cron &&
       cp /etc/cron.d/backup-cron /tmp/backup-cron &&
       chmod 0644 /tmp/backup-cron &&
-      chmod +x /scripts/backup_mongodb.sh &&
+      cp /scripts/backup_mongodb.sh /usr/local/bin/backup_mongodb.sh &&
+      chmod +x /usr/local/bin/backup_mongodb.sh &&
       crontab /tmp/backup-cron &&
       cron -f
       "
