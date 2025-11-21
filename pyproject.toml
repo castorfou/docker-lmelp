@@ -20,7 +20,7 @@ classifiers = [
 
 dependencies = [
     "ipykernel",
-    "ipywidgets", 
+    "ipywidgets",
     "python-dotenv",
     "gitpython",
     "pandas",
@@ -34,13 +34,14 @@ dev = [
     "pytest",
     "ruff",
     "mypy",
+    "cruft",
 ]
 
 [project.urls]
-Homepage = "https://github.com/castor_fou/docker-lmelp"
-Documentation = "https://github.com/castor_fou/docker-lmelp#readme"
-Repository = "https://github.com/castor_fou/docker-lmelp.git"
-Issues = "https://github.com/castor_fou/docker-lmelp/issues"
+Homepage = "https://github.com/castorfou/docker-lmelp"
+Documentation = "https://github.com/castorfou/docker-lmelp#readme"
+Repository = "https://github.com/castorfou/docker-lmelp.git"
+Issues = "https://github.com/castorfou/docker-lmelp/issues"
 
 [project.scripts]
 docker_lmelp_setup = "scripts.setup:main"
@@ -93,7 +94,7 @@ line-length = 88
 # Fichiers à exclure
 extend-exclude = [
     "data/*",
-    "models/*", 
+    "models/*",
     "logs/*",
     ".jupyter/*",
 ]
@@ -140,7 +141,7 @@ warn_unreachable = true
 
 # Configuration stricte progressive
 disallow_any_generics = false        # Autorisé au début
-disallow_untyped_calls = false       # Autorisé au début  
+disallow_untyped_calls = false       # Autorisé au début
 disallow_untyped_defs = false        # Autorisé au début
 disallow_incomplete_defs = true      # Fonctions partiellement typées interdites
 disallow_untyped_decorators = false  # Autorisé au début
@@ -155,7 +156,7 @@ follow_imports = "normal"
 [[tool.mypy.overrides]]
 module = [
     "matplotlib.*",
-    "seaborn.*", 
+    "seaborn.*",
     "sklearn.*",
     "scipy.*",
     "plotly.*",
@@ -168,6 +169,6 @@ module = "notebooks.*"
 ignore_errors = true
 
 # Configuration tests
-[[tool.mypy.overrides]] 
+[[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
