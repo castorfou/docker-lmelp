@@ -30,21 +30,18 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 ### Installation
 
 ```bash
-# 1. Cloner le repository
+# 1. Cloner le repository (la structure data/ est créée automatiquement)
 git clone https://github.com/castorfou/docker-lmelp.git
 cd docker-lmelp
 
-# 2. Créer la structure des volumes
-mkdir -p data/{mongodb,backups,audios,logs}
-
-# 3. Configurer les variables d'environnement
+# 2. Configurer les variables d'environnement
 cp .env.example .env
 nano .env  # Ajouter au moins GEMINI_API_KEY ou OPENAI_API_KEY
 
-# 4. Démarrer la stack
+# 3. Démarrer la stack
 docker compose up -d
 
-# 5. Vérifier l'état (attendez que tous les services soient "healthy")
+# 4. Vérifier l'état (attendez que tous les services soient "healthy")
 docker compose ps
 ```
 

@@ -29,33 +29,9 @@ git clone https://github.com/castorfou/docker-lmelp.git
 cd docker-lmelp
 ```
 
-### Étape 2 : Créer la structure des volumes
+### Étape 2 : Configuration des variables d'environnement
 
-Les containers Docker ont besoin de répertoires sur l'hôte pour stocker les données persistantes.
-
-```bash
-# Créer la structure de répertoires
-mkdir -p data/mongodb
-mkdir -p data/backups
-mkdir -p data/audios
-mkdir -p data/logs
-
-# Définir les permissions appropriées
-chmod -R 755 data/
-```
-
-**Structure créée** :
-
-```
-docker-lmelp/
-├── data/
-│   ├── mongodb/    # Données MongoDB
-│   ├── backups/    # Backups MongoDB
-│   ├── audios/     # Fichiers audio LMELP
-│   └── logs/       # Logs applicatifs
-```
-
-### Étape 3 : Configuration des variables d'environnement
+**Note** : La structure des volumes (`data/mongodb/`, `data/backups/`, `data/audios/`, `data/logs/`) est créée automatiquement lors du clonage du repository grâce aux fichiers `.gitkeep`.
 
 Copier le template de configuration et le personnaliser :
 
@@ -89,7 +65,7 @@ MONGODB_URL=mongodb://localhost:27018/masque_et_la_plume
 
 **Note** : Les variables MongoDB sont dupliquées pour des raisons de compatibilité entre les différentes images Docker. Assurez-vous que `DB_HOST=MONGO_HOST`, `DB_NAME=MONGO_DATABASE`, et que `MONGODB_URL` contient le bon `host:port/database`.
 
-### Étape 4 : Initialiser la base de données (optionnel)
+### Étape 3 : Initialiser la base de données (optionnel)
 
 Si vous avez un backup existant à restaurer, placez-le dans `data/backups/` :
 
@@ -100,7 +76,7 @@ cp -r /path/to/backup_2024-11-20_10-00-00 data/backups/
 
 Le script d'initialisation détectera automatiquement le backup le plus récent au premier démarrage.
 
-### Étape 5 : Démarrer la stack
+### Étape 4 : Démarrer la stack
 
 **Avec Docker Compose (ligne de commande)** :
 
@@ -119,7 +95,7 @@ docker compose logs -f
 
 Voir le [guide Portainer](portainer.md) pour déployer via l'interface web.
 
-### Étape 6 : Vérifier le déploiement
+### Étape 5 : Vérifier le déploiement
 
 Une fois les services démarrés, vérifier leur état.
 

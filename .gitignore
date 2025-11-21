@@ -137,10 +137,16 @@ dmypy.json
 *.hdf5
 *.pickle
 *.pkl
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+
+# LMELP Docker data directories - ignore contents but keep structure
+data/mongodb/*
+data/backups/*
+data/audios/*
+data/logs/*
+!data/mongodb/.gitkeep
+!data/backups/.gitkeep
+!data/audios/.gitkeep
+!data/logs/.gitkeep
 
 # ML models
 *.model
