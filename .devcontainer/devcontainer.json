@@ -39,7 +39,8 @@
                 "GitHub.copilot",
                 "dbaeumer.vscode-eslint",
                 "ms-python.autopep8",
-                "anthropic.claude-code"
+                "anthropic.claude-code",
+                "ms-azuretools.vscode-containers"
             ],
             "settings": {
                 // Configuration Python
