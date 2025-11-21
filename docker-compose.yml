@@ -1,0 +1,186 @@
+services:
+  # MongoDB Database
+  mongo:
+    image: mongo:latest
+    container_name: lmelp-mongo
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27018}:27017"
+    volumes:
+      - ${MONGO_DATA_PATH:-./data/mongodb}:/data/db
+      - ${BACKUP_PATH:-./data/backups}:/backups
+    environment:
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
+  # LMELP Application (Streamlit)
+  lmelp:
+    image: ghcr.io/castorfou/lmelp:latest
+    container_name: lmelp-frontoffice
+    restart: unless-stopped
+    ports:
+      - "${LMELP_PORT:-8501}:8501"
+    depends_on:
+      - mongo
+    volumes:
+      - ${AUDIO_PATH:-./data/audios}:/app/audios
+      - ${BACKUP_PATH:-./data/backups}:/app/db-backup
+      - ${LOG_PATH:-./data/logs}:/app/logs
+    environment:
+      # Database Configuration
+      - DB_HOST=mongo
+      - DB_NAME=${DB_NAME:-masque_et_la_plume}
+      - DB_LOGS=${DB_LOGS:-true}
+
+      # Application Configuration
+      - RSS_LMELP_URL=${RSS_LMELP_URL:-https://radiofrance-podcast.net/podcast09/rss_14007.xml}
+      - AUDIO_BASE_PATH=/app/audios
+      - LMELP_MODE=${LMELP_MODE:-web}
+
+      # LLM API Keys - Google Gemini
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+
+      # LLM API Keys - Google Vertex AI
+      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
+      - GOOGLE_AUTH_FILE=${GOOGLE_AUTH_FILE:-}
+
+      # LLM API Keys - OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+
+      # LLM API Keys - Azure OpenAI
+      - AZURE_API_KEY=${AZURE_API_KEY:-}
+      - AZURE_ENDPOINT=${AZURE_ENDPOINT:-}
+      - AZURE_API_VERSION=${AZURE_API_VERSION:-}
+
+      # LLM API Keys - LiteLLM (local models)
+      - LITELLM_API_KEY=${LITELLM_API_KEY:-}
+
+      # Google Custom Search (for web search)
+      - GOOGLE_CUSTOM_SEARCH_API_KEY=${GOOGLE_CUSTOM_SEARCH_API_KEY:-}
+      - SEARCH_ENGINE_ID=${SEARCH_ENGINE_ID:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
+  # Back-Office Backend API
+  backend:
+    image: ghcr.io/castorfou/lmelp-backend:latest
+    container_name: lmelp-backoffice-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URL=mongodb://mongo:27017/${MONGO_DATABASE:-masque_et_la_plume}
+      - ENVIRONMENT=production
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
+  # Back-Office Frontend (Web UI)
+  frontend:
+    image: ghcr.io/castorfou/lmelp-frontend:latest
+    container_name: lmelp-backoffice-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
+  # MongoDB Automatic Backup Service
+  mongo-backup:
+    image: mongo:latest
+    container_name: lmelp-mongo-backup
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    volumes:
+      - ${BACKUP_PATH:-./data/backups}:/backups
+      - ./scripts/backup_mongodb.sh:/scripts/backup_mongodb.sh:ro
+      - ./scripts/restore_mongodb.sh:/scripts/restore_mongodb.sh:ro
+      - ./cron/backup-cron:/etc/cron.d/backup-cron:ro
+    environment:
+      - MONGO_HOST=mongo
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
+      - BACKUP_RETENTION_WEEKS=${BACKUP_RETENTION_WEEKS:-7}
+    command: >
+      bash -c "
+      apt-get update &&
+      apt-get install -y cron &&
+      cp /etc/cron.d/backup-cron /tmp/backup-cron &&
+      chmod 0644 /tmp/backup-cron &&
+      cp /scripts/backup_mongodb.sh /usr/local/bin/backup_mongodb.sh &&
+      chmod +x /usr/local/bin/backup_mongodb.sh &&
+      crontab /tmp/backup-cron &&
+      cron -f
+      "
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
+networks:
+  lmelp-network:
+    driver: bridge

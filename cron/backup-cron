@@ -1,0 +1,25 @@
+# ============================================================================
+# MongoDB Backup Cron Configuration
+# ============================================================================
+# This cron job runs the MongoDB backup script on a weekly basis
+#
+# Schedule: Every Sunday at 2:00 AM
+# Format: minute hour day_of_month month day_of_week command
+#
+# To modify the schedule, adjust the first 5 fields:
+#   - minute (0-59)
+#   - hour (0-23)
+#   - day of month (1-31)
+#   - month (1-12)
+#   - day of week (0-7, where 0 and 7 are Sunday)
+#
+# Examples:
+#   Daily at 3 AM:           0 3 * * * command
+#   Every Monday at 1 AM:    0 1 * * 1 command
+#   First day of month:      0 2 1 * * command
+# ============================================================================
+
+# Run backup every Sunday at 2:00 AM
+0 2 * * 0 /usr/local/bin/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
+
+# Empty line required at end of cron file

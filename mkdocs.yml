@@ -34,7 +34,11 @@ theme:
 nav:
   - Accueil: index.md
   - Documentation Utilisateur:
-    - user/README.md
+    - A propos de la doc user: user/README.md
+    - Installation: user/installation.md
+    - Configuration: user/configuration.md
+    - Backups & Restauration: user/backup-restore.md
+    - Déploiement Portainer: user/portainer.md
   - Documentation Développeur:
     - dev/README.md
 

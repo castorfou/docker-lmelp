@@ -87,7 +87,8 @@
         "ghcr.io/devcontainers/features/node:1": {
             "nodeGypDependencies": true,
             "version": "lts"
-        }
+        },
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
 
     // Montages pour hériter de la config git du host et de la timezone
