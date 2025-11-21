@@ -49,21 +49,14 @@ GEMINI_API_KEY=votre_cle_gemini_ici
 # OU
 OPENAI_API_KEY=votre_cle_openai_ici
 
-# 2. Configuration MongoDB (valeurs par défaut fonctionnelles)
-# ⚠️  IMPORTANT : Les mêmes valeurs doivent être dupliquées pour compatibilité
-MONGO_HOST=localhost
+# 2. Configuration MongoDB (optionnel, valeurs par défaut fonctionnelles)
 MONGO_PORT=27018
 MONGO_DATABASE=masque_et_la_plume
-
-# Variables dérivées (garder les mêmes valeurs)
-DB_HOST=localhost
-DB_NAME=masque_et_la_plume
-MONGODB_URL=mongodb://localhost:27018/masque_et_la_plume
 
 # Les autres variables ont des valeurs par défaut dans docker-compose.yml
 ```
 
-**Note** : Les variables MongoDB sont dupliquées pour des raisons de compatibilité entre les différentes images Docker. Assurez-vous que `DB_HOST=MONGO_HOST`, `DB_NAME=MONGO_DATABASE`, et que `MONGODB_URL` contient le bon `host:port/database`.
+**Note** : La stack utilise un réseau Docker bridge. Les services communiquent entre eux via les noms de services Docker (ex: `mongo`, `backoffice-backend`). Pas besoin de configurer les URLs de connexion manuellement.
 
 ### Étape 3 : Initialiser la base de données (optionnel)
 
@@ -183,10 +176,17 @@ chmod -R 755 data/
 
 ### MongoDB n'est pas accessible
 
-Vérifier la variable `DB_HOST` dans `.env` :
+Vérifier que tous les services sont sur le même réseau Docker :
 
-- **Linux** : `DB_HOST=172.17.0.1` ou `localhost`
-- **NAS avec MongoDB containerisé** : `DB_HOST=mongo`
+```bash
+# Vérifier les réseaux
+docker network ls | grep lmelp
+
+# Inspecter le réseau
+docker network inspect lmelp-network
+```
+
+Les services doivent utiliser le nom de service `mongo` pour se connecter à MongoDB (pas `localhost`).
 
 ### Port déjà utilisé
 

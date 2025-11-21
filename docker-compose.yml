@@ -3,16 +3,16 @@ services:
   mongo:
     image: mongo:latest
     container_name: lmelp-mongo
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27018}:27017"
     volumes:
       - ${MONGO_DATA_PATH:-./data/mongodb}:/data/db
       - ${BACKUP_PATH:-./data/backups}:/backups
     environment:
       - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
-    command: mongod --port ${MONGO_PORT:-27018}
     healthcheck:
-      test: ["CMD", "mongosh", "--port", "27018", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,13 +24,16 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - lmelp-network
 
   # LMELP Application (Streamlit)
   lmelp:
     image: ghcr.io/castorfou/lmelp:latest
     container_name: lmelp-app
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "${LMELP_PORT:-8501}:8501"
     depends_on:
       - mongo
     volumes:
@@ -39,7 +42,7 @@ services:
       - ${LOG_PATH:-./data/logs}:/app/logs
     environment:
       # Database Configuration
-      - DB_HOST=${DB_HOST:-localhost}
+      - DB_HOST=mongo
       - DB_NAME=${DB_NAME:-masque_et_la_plume}
       - DB_LOGS=${DB_LOGS:-true}
 
@@ -82,22 +85,25 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - lmelp-network
 
   # Back-Office Backend API
   backoffice-backend:
     image: ghcr.io/castorfou/lmelp-backend:latest
     container_name: lmelp-backoffice-backend
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       - mongo
     environment:
-      - MONGODB_URL=${MONGODB_URL:-mongodb://localhost:27018/masque_et_la_plume}
+      - MONGODB_URL=mongodb://mongo:27017/${MONGO_DATABASE:-masque_et_la_plume}
       - ENVIRONMENT=production
       - API_HOST=0.0.0.0
-      - API_PORT=${BACKEND_PORT:-8000}
+      - API_PORT=8000
     healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f http://localhost:$${API_PORT:-8000}/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -109,19 +115,20 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - lmelp-network
 
   # Back-Office Frontend (Web UI)
   backoffice-frontend:
     image: ghcr.io/castorfou/lmelp-frontend:latest
     container_name: lmelp-backoffice-frontend
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       - backoffice-backend
-    environment:
-      - FRONTEND_PORT=${FRONTEND_PORT:-8080}
     healthcheck:
-      test: ["CMD", "sh", "-c", "curl -f http://localhost:$${FRONTEND_PORT:-8080}"]
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -133,12 +140,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - lmelp-network
 
   # MongoDB Automatic Backup Service
   mongo-backup:
     image: mongo:latest
     container_name: lmelp-mongo-backup
-    network_mode: host
     restart: unless-stopped
     depends_on:
       - mongo
@@ -147,8 +155,8 @@ services:
       - ./scripts/backup_mongodb.sh:/scripts/backup_mongodb.sh:ro
       - ./cron/backup-cron:/etc/cron.d/backup-cron:ro
     environment:
-      - MONGO_HOST=${MONGO_HOST:-localhost}
-      - MONGO_PORT=${MONGO_PORT:-27018}
+      - MONGO_HOST=mongo
+      - MONGO_PORT=27017
       - MONGO_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
       - BACKUP_RETENTION_WEEKS=${BACKUP_RETENTION_WEEKS:-7}
     command: >
@@ -168,3 +176,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks:
+      - lmelp-network
+
+networks:
+  lmelp-network:
+    driver: bridge

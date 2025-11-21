@@ -18,38 +18,28 @@ vim .env
 
 ## Variables MongoDB
 
+### Configuration réseau
+
+La stack utilise un **réseau Docker bridge** nommé `lmelp-network`. Les services communiquent entre eux via les noms de services Docker (ex: `mongo`, `backend`).
+
 ### Configuration de base
 
 ```bash
-# Hôte MongoDB
-MONGO_HOST=localhost
-
-# Port MongoDB (27018 par défaut pour éviter conflit avec instance existante)
+# Port exposé sur l'hôte (27018 par défaut pour éviter conflit avec instance existante)
 MONGO_PORT=27018
 
 # Nom de la base de données
 MONGO_DATABASE=masque_et_la_plume
+
+# Activer les logs de requêtes MongoDB
+DB_LOGS=true
 ```
 
 **Note sur le port** : Le port par défaut est **27018** (au lieu de 27017 standard) pour permettre de faire tourner cette stack en parallèle d'une instance MongoDB existante. Une fois la migration terminée, vous pouvez revenir au port 27017 en modifiant `MONGO_PORT=27017` dans `.env`.
 
-### Configuration DB_HOST selon l'environnement
-
-La variable `DB_HOST` définit comment les applications communiquent avec MongoDB. **Cette valeur varie selon votre environnement** :
-
-#### Linux avec MongoDB local
-
-```bash
-DB_HOST=172.17.0.1
-```
-
-#### NAS ou PC avec MongoDB containerisé (mode host)
-
-```bash
-DB_HOST=localhost
-```
-
-En mode `network_mode: host`, tous les services partagent la stack réseau de l'hôte.
+**Accès à MongoDB** :
+- **Depuis les containers** : `mongodb://mongo:27017/masque_et_la_plume` (port interne 27017)
+- **Depuis l'hôte** : `mongodb://localhost:27018/masque_et_la_plume` (port mappé via MONGO_PORT)
 
 ## Variables LMELP Application
 
@@ -320,14 +310,13 @@ docker compose restart lmelp
 
 ```bash
 # MongoDB
-DB_HOST=localhost
 MONGO_PORT=27018
 MONGO_DATABASE=masque_et_la_plume
 
 # LLM (une seule clé suffit pour tester)
 GEMINI_API_KEY=your_key_here
 
-# Chemins par défaut
+# Chemins par défaut (optionnel, valeurs par défaut dans docker-compose.yml)
 MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
@@ -338,7 +327,6 @@ LOG_PATH=./data/logs
 
 ```bash
 # MongoDB
-DB_HOST=localhost
 MONGO_PORT=27018
 MONGO_DATABASE=masque_et_la_plume
 
