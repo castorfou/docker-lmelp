@@ -97,7 +97,7 @@ services:
       - API_HOST=0.0.0.0
       - API_PORT=${BACKEND_PORT:-8000}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:$${API_PORT:-8000}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -121,7 +121,7 @@ services:
     environment:
       - FRONTEND_PORT=${FRONTEND_PORT:-8080}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:$${FRONTEND_PORT:-8080}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -155,9 +155,10 @@ services:
       bash -c "
       apt-get update &&
       apt-get install -y cron &&
-      chmod 0644 /etc/cron.d/backup-cron &&
+      cp /etc/cron.d/backup-cron /tmp/backup-cron &&
+      chmod 0644 /tmp/backup-cron &&
       chmod +x /scripts/backup_mongodb.sh &&
-      crontab /etc/cron.d/backup-cron &&
+      crontab /tmp/backup-cron &&
       cron -f
       "
     labels:
