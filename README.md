@@ -2,8 +2,8 @@
 
 proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso
 
-[![CI](https://github.com/castor_fou/docker-lmelp/actions/workflows/ci.yml/badge.svg)](https://github.com/castor_fou/docker-lmelp/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/castor_fou/docker-lmelp/branch/main/graph/badge.svg)](https://codecov.io/gh/castor_fou/docker-lmelp)
+[![CI](https://github.com/castorfou/docker-lmelp/actions/workflows/ci.yml/badge.svg)](https://github.com/castorfou/docker-lmelp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/castorfou/docker-lmelp/branch/main/graph/badge.svg)](https://codecov.io/gh/castorfou/docker-lmelp)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
