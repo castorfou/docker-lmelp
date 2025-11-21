@@ -113,8 +113,8 @@ Les services devraient afficher **"Up (healthy)"** une fois complètement opéra
 
 - **MongoDB** : Commande `ping` via mongosh
 - **LMELP App** : Endpoint Streamlit `/_stcore/health`
-- **Backend API** : Endpoint `/health`
-- **Frontend** : Disponibilité du serveur web
+- **Backend API** : Endpoint `/` (retourne infos API)
+- **Frontend** : Disponibilité du serveur web nginx
 
 **Temps de démarrage** : Attendez 30-60 secondes après `docker compose up` pour que tous les services passent à l'état "healthy".
 
@@ -136,8 +136,8 @@ curl http://localhost:8080
 
 **Back-Office API** :
 ```bash
-curl http://localhost:8000/health
-# Devrait retourner : {"status":"healthy"}
+curl http://localhost:8000/
+# Devrait retourner : {"message":"Back-office LMELP API","version":"0.1.0"}
 ```
 
 **MongoDB** :
