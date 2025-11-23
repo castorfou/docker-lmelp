@@ -61,7 +61,10 @@ where = ["src"]
 
 # Configuration uv pour la reproductibilité
 [dependency-groups]
-dev = ["pytest",]
+dev = [
+    "pytest",
+    "pytest-cov>=7.0.0",
+]
 
 # Configuration Ruff - Linter et formateur Python moderne
 [tool.ruff]
