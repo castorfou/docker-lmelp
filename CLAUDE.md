@@ -42,7 +42,9 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 
 ### Prérequis
 - VS Code avec l'extension Dev Containers
-- Docker
+- Docker (version moderne avec Docker Compose V2 intégré)
+
+**Note importante** : Ce projet utilise Docker Compose V2 qui est intégré à Docker. Utiliser `docker compose` (avec espace) et non `docker-compose` (avec tiret).
 
 ### Installation
 1. Ouvrir le projet dans VS Code

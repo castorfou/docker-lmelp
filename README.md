@@ -13,11 +13,11 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 ## ✨ Fonctionnalités
 
 - **Stack complète** : MongoDB + LMELP App + Back-Office (Frontend + Backend)
-- **Backups automatisés** : Sauvegardes hebdomadaires de MongoDB avec rétention configurable
-- **Rotation des logs** : Rotation automatique des logs MongoDB avec anacron (adapté aux portables)
+- **Backups automatisés** : Sauvegardes hebdomadaires de MongoDB avec anacron (adapté aux NAS/PC non 24/7)
+- **Rotation des logs** : Rotation automatique quotidienne des logs MongoDB
+- **Image MongoDB personnalisée** : Disponible sur ghcr.io avec backup et rotation intégrés
 - **Scripts de restauration** : Restauration facile depuis n'importe quel backup
 - **Prêt pour Portainer** : Déploiement en un clic via interface graphique
-- **Mode host network** : Configuration réseau simplifiée
 - **Watchtower ready** : Mises à jour automatiques des images Docker
 - **Multi-LLM** : Support de plusieurs fournisseurs (Gemini, OpenAI, Azure, LiteLLM)
 
@@ -64,11 +64,10 @@ docker compose ps
 
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
-| **mongo** | mongo:latest | 27018 | Base de données MongoDB |
+| **mongo** | ghcr.io/castorfou/lmelp-mongo:latest | 27018 | MongoDB + backup + rotation logs (anacron) |
 | **lmelp** | ghcr.io/castorfou/lmelp:latest | 8501 | Application Streamlit |
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web |
-| **mongo-backup** | mongo:latest | - | Service de backup automatique |
 
 ## 📚 Documentation complète
 
@@ -142,24 +141,29 @@ docker-lmelp/
 
 ### Backups automatiques
 
-Par défaut : **chaque dimanche à 2h du matin**, rétention de **7 semaines**.
+Par défaut : **backup hebdomadaire** (tous les 7 jours) avec anacron, rétention de **7 semaines**.
+
+**Anacron** : Contrairement à cron, anacron exécute les tâches manquées au prochain démarrage, idéal pour les machines non 24/7 (NAS, PC personnels).
 
 ```bash
 # Voir les backups existants
 ls -lh data/backups/
 
 # Forcer un backup manuel
-docker exec lmelp-mongo-backup /scripts/backup_mongodb.sh
+docker exec lmelp-mongo /scripts/backup_mongodb.sh
+
+# Vérifier les logs de backup
+docker exec lmelp-mongo cat /var/log/mongodb/backup.log
 ```
 
 ### Restauration
 
 ```bash
 # Lister les backups disponibles
-docker exec -it lmelp-mongo-backup /scripts/restore_mongodb.sh
+docker exec -it lmelp-mongo /scripts/restore_mongodb.sh
 
 # Restaurer un backup spécifique
-docker exec -it lmelp-mongo-backup /scripts/restore_mongodb.sh backup_2024-11-21_02-00-00
+docker exec -it lmelp-mongo /scripts/restore_mongodb.sh backup_2024-11-21_02-00-00
 ```
 
 Voir la [documentation complète des backups](https://castorfou.github.io/docker-lmelp/user/backup-restore/) pour plus de détails.

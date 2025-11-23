@@ -15,8 +15,8 @@ RUN apt-get update && \
         gzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Create log rotation configuration for anacron
-RUN mkdir -p /etc/anacron.daily
+# Create log rotation and backup configuration for anacron
+RUN mkdir -p /etc/anacron.daily /etc/anacron.weekly
 
 # Create log directory with correct permissions
 RUN mkdir -p /var/log/mongodb && \
@@ -32,14 +32,31 @@ RUN chmod 644 /etc/mongod.conf && \
 COPY scripts/rotate_mongodb_logs.sh /scripts/rotate_mongodb_logs.sh
 RUN chmod +x /scripts/rotate_mongodb_logs.sh
 
-# Create anacron job file
+# Copy the backup script
+COPY scripts/backup_mongodb.sh /scripts/backup_mongodb.sh
+RUN chmod +x /scripts/backup_mongodb.sh
+
+# Create anacron job file for log rotation (daily)
 RUN echo '#!/bin/bash' > /etc/anacron.daily/mongodb-logrotate && \
     echo '/scripts/rotate_mongodb_logs.sh --compress --keep-days 30 >> /var/log/mongodb/logrotate.log 2>&1' >> /etc/anacron.daily/mongodb-logrotate && \
     chmod +x /etc/anacron.daily/mongodb-logrotate
 
-# Configure anacron to run the job daily
+# Create anacron job file for backup (weekly)
+RUN echo '#!/bin/bash' > /etc/anacron.weekly/mongodb-backup && \
+    echo 'MONGO_HOST=${MONGO_HOST:-localhost}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'MONGO_PORT=${MONGO_PORT:-27017}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'MONGO_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'BACKUP_RETENTION_WEEKS=${BACKUP_RETENTION_WEEKS:-7}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'export MONGO_HOST MONGO_PORT MONGO_DATABASE BACKUP_RETENTION_WEEKS' >> /etc/anacron.weekly/mongodb-backup && \
+    echo '/scripts/backup_mongodb.sh >> /var/log/mongodb/backup.log 2>&1' >> /etc/anacron.weekly/mongodb-backup && \
+    chmod +x /etc/anacron.weekly/mongodb-backup
+
+# Configure anacron to run jobs
 # Format: period delay job-identifier command
+# Daily log rotation (every 1 day, wait 5 minutes after boot)
 RUN echo '1 5 mongodb-logrotate /etc/anacron.daily/mongodb-logrotate' >> /etc/anacrontab
+# Weekly backup (every 7 days, wait 10 minutes after boot)
+RUN echo '7 10 mongodb-backup /etc/anacron.weekly/mongodb-backup' >> /etc/anacrontab
 
 # Create a startup script that runs both MongoDB and anacron
 RUN echo '#!/bin/bash' > /docker-entrypoint-anacron.sh && \

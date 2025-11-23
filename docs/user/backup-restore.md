@@ -6,21 +6,25 @@ Ce guide détaille la gestion des sauvegardes et restaurations de la base de don
 
 La stack LMELP inclut un système de backup automatisé qui :
 
-- Crée des backups hebdomadaires de MongoDB
+- Crée des backups hebdomadaires de MongoDB avec **anacron**
 - Conserve les backups selon une politique de rétention (7 semaines par défaut)
 - Permet la restauration manuelle depuis n'importe quel backup
 - Fournit des scripts pour l'initialisation et la restauration
+- **Adapté aux NAS et PC personnels** : anacron exécute les backups manqués au prochain démarrage
 
 ## Backups automatiques
 
 ### Configuration par défaut
 
-Le service `mongo-backup` s'exécute automatiquement :
+Le backup est intégré dans le conteneur MongoDB avec anacron :
 
-- **Fréquence** : Chaque dimanche à 2h00 du matin
+- **Fréquence** : Hebdomadaire (tous les 7 jours) via anacron
+- **Délai après démarrage** : 10 minutes
 - **Rétention** : 7 semaines (49 jours)
 - **Emplacement** : `./data/backups/` (configurable via `BACKUP_PATH`)
 - **Format** : `backup_YYYY-MM-DD_HH-MM-SS/`
+
+**Avantage d'anacron** : Contrairement à cron, anacron exécute les tâches manquées. Si votre machine était éteinte au moment prévu, le backup s'exécutera au prochain démarrage.
 
 ### Vérifier l'état des backups
 
@@ -37,14 +41,11 @@ ls -lth data/backups/
 #### Consulter les logs de backup
 
 ```bash
-# Logs en temps réel
-docker compose logs -f mongo-backup
+# Logs du conteneur MongoDB (inclut les logs anacron)
+docker compose logs -f mongo
 
-# Logs récents
-docker compose logs --tail=100 mongo-backup
-
-# Logs d'un backup spécifique dans le container
-docker exec lmelp-mongo-backup cat /var/log/mongo-backup.log
+# Logs de backup spécifiques
+docker exec lmelp-mongo cat /var/log/mongodb/backup.log
 ```
 
 ### Forcer un backup manuel
@@ -53,27 +54,28 @@ Exécuter le script de backup manuellement :
 
 ```bash
 # Depuis l'hôte
-docker exec lmelp-mongo-backup /scripts/backup_mongodb.sh
+docker exec lmelp-mongo /scripts/backup_mongodb.sh
 
 # Ou entrer dans le container
-docker exec -it lmelp-mongo-backup bash
+docker exec -it lmelp-mongo bash
 /scripts/backup_mongodb.sh
 ```
 
 ### Modifier la planification
 
-Éditer le fichier `cron/backup-cron` :
+La planification anacron est configurée dans `mongodb.Dockerfile`. Pour modifier la fréquence :
 
-```cron
-# Changer la fréquence (voir guide de configuration)
-0 3 * * * /scripts/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
-```
-
-Recréer le container pour appliquer :
+1. Éditer `mongodb.Dockerfile`, ligne avec `mongodb-backup` dans `/etc/anacrontab`
+2. Rebuilder l'image :
 
 ```bash
-docker compose up -d --force-recreate mongo-backup
+docker compose build mongo
+docker compose up -d mongo
 ```
+
+**Format anacron** : `période délai job-identifier commande`
+- `période` : Nombre de jours entre les exécutions (par défaut : 7)
+- `délai` : Minutes à attendre après boot (par défaut : 10)
 
 ### Modifier la rétention
 
@@ -84,10 +86,10 @@ Changer la durée de conservation des backups dans `.env` :
 BACKUP_RETENTION_WEEKS=12
 ```
 
-Redémarrer le service de backup :
+Redémarrer MongoDB pour appliquer :
 
 ```bash
-docker compose restart mongo-backup
+docker compose restart mongo
 ```
 
 ## Restauration depuis un backup
@@ -96,7 +98,7 @@ docker compose restart mongo-backup
 
 ```bash
 # Utiliser le script de restauration sans argument
-docker exec -it lmelp-mongo-backup /scripts/restore_mongodb.sh
+docker exec -it lmelp-mongo /scripts/restore_mongodb.sh
 ```
 
 Affiche :

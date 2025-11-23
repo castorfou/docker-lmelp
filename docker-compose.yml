@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: mongodb.Dockerfile
-    image: lmelp-mongo:latest
+    image: ghcr.io/castorfou/lmelp-mongo:latest
     container_name: lmelp-mongo
     restart: unless-stopped
     command: ["mongod", "--config", "/etc/mongod.conf"]
@@ -148,43 +148,6 @@ services:
     networks:
       - lmelp-network
 
-  # MongoDB Automatic Backup Service
-  mongo-backup:
-    image: mongo:latest
-    container_name: lmelp-mongo-backup
-    restart: unless-stopped
-    depends_on:
-      - mongo
-    volumes:
-      - ${BACKUP_PATH:-./data/backups}:/backups
-      - ./scripts/backup_mongodb.sh:/scripts/backup_mongodb.sh:ro
-      - ./scripts/restore_mongodb.sh:/scripts/restore_mongodb.sh:ro
-      - ./cron/backup-cron:/etc/cron.d/backup-cron:ro
-    environment:
-      - MONGO_HOST=mongo
-      - MONGO_PORT=27017
-      - MONGO_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
-      - BACKUP_RETENTION_WEEKS=${BACKUP_RETENTION_WEEKS:-7}
-    command: >
-      bash -c "
-      apt-get update &&
-      apt-get install -y cron &&
-      cp /etc/cron.d/backup-cron /tmp/backup-cron &&
-      chmod 0644 /tmp/backup-cron &&
-      cp /scripts/backup_mongodb.sh /usr/local/bin/backup_mongodb.sh &&
-      chmod +x /usr/local/bin/backup_mongodb.sh &&
-      crontab /tmp/backup-cron &&
-      cron -f
-      "
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - lmelp-network
 
 networks:
   lmelp-network:

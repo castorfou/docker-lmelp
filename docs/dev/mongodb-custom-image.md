@@ -4,7 +4,11 @@ Cette documentation détaille les choix de conception pour l'image Docker MongoD
 
 ## Contexte
 
-L'image officielle MongoDB ne gère pas nativement la rotation des logs, ce qui peut conduire à des fichiers de logs de plusieurs dizaines de Go. Pour résoudre ce problème, une image custom a été créée.
+L'image officielle MongoDB ne gère pas nativement :
+- La rotation automatique des logs (risque de fichiers de plusieurs dizaines de Go)
+- Les backups automatisés de la base de données
+
+Pour résoudre ces problèmes, une image custom a été créée avec anacron intégré pour gérer à la fois la rotation des logs et les backups.
 
 ## Choix de conception
 
@@ -220,6 +224,96 @@ sudo chown -R 999:999 data/logs/mongodb
 - **CPU** : Quasi-nul (vérifie juste les timestamps)
 - **Mémoire** : ~2-3 MB
 - **Démarrage** : Aucun impact (lance en background)
+
+## Backup automatisé intégré
+
+Depuis la consolidation de l'architecture (issue #14), le backup MongoDB est intégré directement dans l'image custom au lieu d'utiliser un conteneur séparé.
+
+### Configuration du backup
+
+```dockerfile
+# Copy the backup script
+COPY scripts/backup_mongodb.sh /scripts/backup_mongodb.sh
+RUN chmod +x /scripts/backup_mongodb.sh
+
+# Create anacron job file for backup (weekly)
+RUN echo '#!/bin/bash' > /etc/anacron.weekly/mongodb-backup && \
+    echo 'MONGO_HOST=${MONGO_HOST:-localhost}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'MONGO_PORT=${MONGO_PORT:-27017}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'MONGO_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'BACKUP_RETENTION_WEEKS=${BACKUP_RETENTION_WEEKS:-7}' >> /etc/anacron.weekly/mongodb-backup && \
+    echo 'export MONGO_HOST MONGO_PORT MONGO_DATABASE BACKUP_RETENTION_WEEKS' >> /etc/anacron.weekly/mongodb-backup && \
+    echo '/scripts/backup_mongodb.sh >> /var/log/mongodb/backup.log 2>&1' >> /etc/anacron.weekly/mongodb-backup && \
+    chmod +x /etc/anacron.weekly/mongodb-backup
+
+# Weekly backup (every 7 days, wait 10 minutes after boot)
+RUN echo '7 10 mongodb-backup /etc/anacron.weekly/mongodb-backup' >> /etc/anacrontab
+```
+
+**Raisons de l'intégration** :
+- **Cohérence** : Tous les services de maintenance MongoDB au même endroit
+- **Simplicité** : Un seul conteneur au lieu de deux
+- **Anacron** : Exécution des backups manqués, adapté aux NAS/PC personnels
+- **Variables d'environnement** : Accès aux paramètres du conteneur MongoDB
+
+### Architecture du backup
+
+```
+┌─────────────────────────────────────────┐
+│         Conteneur MongoDB               │
+│                                         │
+│  ┌──────────────────────────────────┐  │
+│  │   Anacron                        │  │
+│  │                                  │  │
+│  │   - Quotidien (rotation logs)    │  │
+│  │   - Hebdomadaire (backup)        │  │
+│  └──────────────────────────────────┘  │
+│                 │                       │
+│                 ▼                       │
+│  ┌──────────────────────────────────┐  │
+│  │   backup_mongodb.sh              │  │
+│  │                                  │  │
+│  │   1. mongodump --db=...          │  │
+│  │   2. Clean old backups (> 7w)    │  │
+│  │   3. List current backups        │  │
+│  └──────────────────────────────────┘  │
+│                 │                       │
+│                 ▼                       │
+│  ┌──────────────────────────────────┐  │
+│  │   /backups/                      │  │
+│  │   (monté depuis l'hôte)          │  │
+│  │                                  │  │
+│  │   - backup_2025-11-23_02-00-00/  │  │
+│  │   - backup_2025-11-16_02-00-00/  │  │
+│  └──────────────────────────────────┘  │
+└─────────────────────────────────────────┘
+                 │
+                 │ (volume mount)
+                 ▼
+        data/backups/
+        (sur l'hôte)
+```
+
+### Avantage d'anacron pour le backup
+
+**Scénario typique** : PC personnel éteint le week-end
+- **Avec cron** : Le backup prévu dimanche 2h00 ne s'exécute jamais
+- **Avec anacron** : Le backup s'exécute lundi matin au démarrage
+
+Anacron garde une trace de la dernière exécution dans `/var/spool/anacron/` et vérifie si le délai est dépassé.
+
+### Publication sur GitHub Container Registry
+
+L'image est automatiquement construite et publiée sur `ghcr.io` via GitHub Actions (`.github/workflows/build-mongo-image.yml`) :
+
+- **Déclencheurs** : Modification du Dockerfile, scripts, ou configuration
+- **Tags** : `latest`, versions sémantiques, SHA du commit
+- **Registry** : `ghcr.io/castorfou/lmelp-mongo:latest`
+
+**Avantages** :
+- Pas besoin de build local pour le déploiement
+- Cohérent avec les autres images du projet
+- Facilite le déploiement sur Portainer
 
 ## Évolutions possibles
 
