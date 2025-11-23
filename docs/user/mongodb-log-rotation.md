@@ -1,4 +1,4 @@
-# Rotation des logs MongoDB
+# Rotation des logs MongoDB - Installation container (Docker)
 
 La stack LMELP inclut un système automatique de rotation des logs MongoDB pour empêcher les fichiers de logs de consommer trop d'espace disque.
 
