@@ -4,7 +4,7 @@ Ce guide explique comment déployer la stack LMELP via l'interface web Portainer
 
 ## Prérequis
 
-- Portainer installé et accessible (voir [guide d'installation](installation.md#portainer-optionnel-recommandé))
+- Portainer installé et accessible
 - Repository `docker-lmelp` cloné ou fichiers disponibles localement
 - Fichier `.env` configuré avec vos valeurs
 
@@ -20,8 +20,8 @@ Ce guide explique comment déployer la stack LMELP via l'interface web Portainer
 
 Ouvrir Portainer dans votre navigateur :
 
-- **Local** : `http://localhost:9000` ou `https://localhost:9443`
-- **NAS/Serveur distant** : `http://nas-ip:9000` ou `https://nas-ip:9443`
+- **Local** : `https://localhost:9443`
+- **NAS/Serveur distant** : `https://nas-ip:9443`
 
 **Première connexion** :
 
@@ -29,7 +29,7 @@ Ouvrir Portainer dans votre navigateur :
 2. Sélectionner "Docker" comme environnement
 3. Choisir "Local" ou "Remote" selon votre installation
 
-## Méthode 1 : Déploiement via Repository Git
+## Déploiement via Repository Git
 
 ### Étape 1 : Créer une nouvelle stack
 
@@ -39,36 +39,26 @@ Ouvrir Portainer dans votre navigateur :
 
 ### Étape 2 : Configurer la stack
 
-**Nom de la stack** : `lmelp-stack`
+[![](portainer-stack-small.png)](portainer-stack.png)
+(cliquer pour zoomer)
 
-**Build method** : Sélectionner **Git Repository**
+**Name** : `lmelp-stack`
 
-**Repository** :
+**Build method** : Sélectionner **Repository**
+
+**Git Repository** :
 
 ```
+Authentication: Coche
+Username: castorfou
+Personal Access Token: <voir dans enpass: github personal access tokens>
 Repository URL: https://github.com/castorfou/docker-lmelp
 Repository reference: refs/heads/main
 Compose path: docker-compose.yml
 ```
+**Environment Variables** : Cliquer sur Load variables from .env file et Selectionner le fichier `.env`
 
-### Étape 3 : Upload du fichier .env
-
-Dans la section **Environment variables** :
-
-1. Cliquer sur **Advanced mode**
-2. Cliquer sur **Upload** (icône de dossier)
-3. Sélectionner votre fichier `.env` local
-4. Ou copier-coller le contenu de `.env`
-
-**Alternative - Variables individuelles** :
-
-1. Cliquer sur **+ Add environment variable**
-2. Ajouter chaque variable manuellement :
-   - Name: `DB_HOST`, Value: `localhost`
-   - Name: `GEMINI_API_KEY`, Value: `your_key_here`
-   - etc.
-
-### Étape 4 : Déployer
+### Étape 3 : Déployer
 
 1. Vérifier la configuration
 2. Cocher **Pull latest image versions** (recommandé)
@@ -81,90 +71,14 @@ Portainer va :
 - Créer les volumes
 - Démarrer les containers
 
-### Étape 5 : Vérifier le déploiement
+### Étape 4 : Vérifier le déploiement
 
 Aller dans **Stacks** → **lmelp-stack** pour voir :
 
-- Liste des services (mongo, lmelp, backoffice-backend, backoffice-frontend, mongo-backup)
+- Liste des services (mongo, lmelp, backoffice-backend, backoffice-frontend)
 - État de chaque container (vert = running)
 - Logs en temps réel
 
-## Méthode 2 : Déploiement via fichier local
-
-### Étape 1 : Préparer les fichiers
-
-Sur votre machine locale, créer un dossier avec :
-
-```
-lmelp-stack/
-├── docker-compose.yml
-├── .env
-├── scripts/
-│   ├── backup_mongodb.sh
-│   ├── restore_mongodb.sh
-│   └── init_mongo.sh
-└── cron/
-    └── backup-cron
-```
-
-### Étape 2 : Créer la stack dans Portainer
-
-1. **Stacks** → **+ Add stack**
-2. **Name** : `lmelp-stack`
-3. **Build method** : **Upload**
-
-### Étape 3 : Upload docker-compose.yml
-
-1. Cliquer sur **Upload** ou glisser-déposer `docker-compose.yml`
-2. Le contenu apparaît dans l'éditeur
-
-### Étape 4 : Configurer les variables
-
-Uploader ou copier-coller le contenu de `.env` (même méthode que Méthode 1)
-
-### Étape 5 : Déployer
-
-Cliquer sur **Deploy the stack**
-
-### Étape 6 : Upload des scripts
-
-Les scripts doivent être copiés manuellement sur l'hôte :
-
-```bash
-# Créer les dossiers
-ssh user@server "mkdir -p /path/to/lmelp/scripts /path/to/lmelp/cron"
-
-# Copier les scripts
-scp scripts/* user@server:/path/to/lmelp/scripts/
-scp cron/backup-cron user@server:/path/to/lmelp/cron/
-
-# Définir les permissions
-ssh user@server "chmod +x /path/to/lmelp/scripts/*.sh"
-```
-
-Adapter les volumes dans `docker-compose.yml` pour pointer vers ces chemins.
-
-## Méthode 3 : Déploiement via Web Editor
-
-### Étape 1 : Créer la stack
-
-1. **Stacks** → **+ Add stack**
-2. **Name** : `lmelp-stack`
-3. **Build method** : **Web editor**
-
-### Étape 2 : Coller le docker-compose.yml
-
-Copier-coller le contenu complet de `docker-compose.yml` dans l'éditeur.
-
-### Étape 3 : Ajouter les variables
-
-Même processus que les méthodes précédentes.
-
-### Étape 4 : Déployer
-
-Cliquer sur **Deploy the stack**
-
-**Note** : Les scripts doivent être copiés manuellement (voir Méthode 2, Étape 6)
 
 ## Gestion de la stack dans Portainer
 
@@ -172,11 +86,10 @@ Cliquer sur **Deploy the stack**
 
 **Stacks** → **lmelp-stack** :
 
-- **mongo** : ⬤ Running
-- **lmelp** : ⬤ Running
-- **backoffice-backend** : ⬤ Running
-- **backoffice-frontend** : ⬤ Running
-- **mongo-backup** : ⬤ Running
+- **lmelp-backoffice-backend** : ⬤ healthy
+- **lmelp-backoffice-frontend** : ⬤ healthy
+- **lmelp-frontoffice** : ⬤ healthy
+- **lmelp-mongo** : ⬤ healthy
 
 ### Consulter les logs
 

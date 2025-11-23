@@ -103,9 +103,12 @@ MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
 LOG_PATH=./data/logs
+MONGO_LOG_PATH=./data/logs/mongodb
 ```
 
-**Note** : Les variables MongoDB apparaissent plusieurs fois car différentes images Docker utilisent des noms différents. À terme, cela sera rationalisé dans les applications sources.
+**Notes importantes** :
+- Les variables MongoDB apparaissent plusieurs fois car différentes images Docker utilisent des noms différents. À terme, cela sera rationalisé dans les applications sources.
+- **Sur Portainer** : Utilisez des chemins absolus pour tous les volumes. Les chemins relatifs sont transformés par Portainer.
 
 ## 🗂️ Structure du projet
 

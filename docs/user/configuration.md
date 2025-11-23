@@ -186,14 +186,20 @@ BACKUP_PATH=./data/backups
 # Fichiers audio LMELP
 AUDIO_PATH=./data/audios
 
-# Logs applicatifs (pour logs LMELP app, pas logs Docker)
+# Logs applicatifs LMELP (pour logs de l'app Streamlit)
 LOG_PATH=./data/logs
+
+# Logs MongoDB (mongod.log, backup.log, logrotate.log)
+MONGO_LOG_PATH=./data/logs/mongodb
 ```
 
 **Note sur les logs** :
 - `LOG_PATH` est monté dans le container LMELP pour d'éventuels logs applicatifs
+- `MONGO_LOG_PATH` est monté dans le container MongoDB pour tous les logs MongoDB (serveur, backup, rotation)
 - Les logs Docker (stdout/stderr) sont gérés par Docker et accessibles via `docker compose logs`
 - Configuration de rotation : 10MB max par fichier, 3 fichiers conservés
+
+**⚠️ Important pour Portainer** : Sur Portainer, utilisez **toujours des chemins absolus** pour les volumes. Les chemins relatifs sont interprétés depuis le répertoire de travail de Portainer (`/data/compose/X/`) et non depuis votre repository Git.
 
 **Chemins personnalisés** :
 
@@ -205,13 +211,18 @@ MONGO_DATA_PATH=/mnt/storage/lmelp/mongodb
 BACKUP_PATH=/mnt/storage/lmelp/backups
 AUDIO_PATH=/mnt/storage/lmelp/audios
 LOG_PATH=/mnt/storage/lmelp/logs
+MONGO_LOG_PATH=/mnt/storage/lmelp/logs/mongodb
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/mongodb}
 chmod -R 755 /mnt/storage/lmelp
+
+# MongoDB a besoin que le répertoire de logs ait les bonnes permissions
+sudo chown -R 999:999 /mnt/storage/lmelp/logs/mongodb
+# Alternative sans sudo : chmod 777 /mnt/storage/lmelp/logs/mongodb
 ```
 
 ## Configuration des backups
@@ -326,6 +337,7 @@ MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
 LOG_PATH=./data/logs
+MONGO_LOG_PATH=./data/logs/mongodb
 ```
 
 ### Configuration production (NAS)
@@ -339,11 +351,12 @@ MONGO_DATABASE=masque_et_la_plume
 GEMINI_API_KEY=your_gemini_key
 OPENAI_API_KEY=your_openai_key
 
-# Chemins sur volumes dédiés
+# Chemins sur volumes dédiés (absolus requis pour Portainer)
 MONGO_DATA_PATH=/volume1/lmelp/mongodb
 BACKUP_PATH=/volume1/lmelp/backups
 AUDIO_PATH=/volume1/lmelp/audios
 LOG_PATH=/volume1/lmelp/logs
+MONGO_LOG_PATH=/volume1/lmelp/logs/mongodb
 
 # Backup avec rétention longue
 BACKUP_RETENTION_WEEKS=12

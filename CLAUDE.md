@@ -46,6 +46,56 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 
 **Note importante** : Ce projet utilise Docker Compose V2 qui est intégré à Docker. Utiliser `docker compose` (avec espace) et non `docker-compose` (avec tiret).
 
+### Déploiement Portainer
+
+Ce projet est conçu pour être déployé facilement via Portainer (interface graphique Docker).
+
+**⚠️ IMPORTANT - Chemins de volumes dans Portainer** :
+
+Portainer et Docker Compose "pur" résolvent les chemins relatifs différemment :
+- **Docker Compose en CLI** : résout `./data/logs` depuis le répertoire où se trouve le `docker-compose.yml`
+- **Portainer** : résout `./data/logs` depuis son propre répertoire de travail (`/data/compose/X/`)
+
+**Règle absolue** : Dans Portainer, **toujours utiliser des chemins absolus** pour les variables de volumes dans le fichier `.env`.
+
+```bash
+# ❌ MAUVAIS dans Portainer (chemins relatifs)
+MONGO_LOG_PATH=./data/logs/mongodb
+
+# ✅ BON dans Portainer (chemins absolus)
+MONGO_LOG_PATH=/home/user/docker-lmelp/data/logs/mongodb
+MONGO_LOG_PATH=/volume1/docker/lmelp/data/logs/mongodb  # NAS Synology
+```
+
+Cette différence de comportement a été identifiée lors du diagnostic d'un problème où MongoDB ne pouvait pas écrire ses logs. Portainer transformait le chemin relatif `./data/logs/mongodb` en `/data/compose/4/data/logs/mongodb` au lieu du chemin attendu.
+
+### Méthodologie de debugging : Comprendre AVANT de contourner
+
+**Principe fondamental** : Toujours chercher à **comprendre la cause racine** d'un problème avant d'appliquer une solution de contournement.
+
+**Exemple concret** : Lors du diagnostic du problème MongoDB ci-dessus, plusieurs solutions de contournement étaient possibles :
+- ❌ Supprimer le volume de logs MongoDB (contournement sans comprendre)
+- ❌ Utiliser `chmod 777` partout (contournement qui masque le problème)
+- ✅ **Investiguer pourquoi** MongoDB ne peut pas écrire, découvrir la transformation de chemin par Portainer
+
+**Bénéfices de persister pour comprendre** :
+1. **Solution durable** : On corrige la cause, pas le symptôme
+2. **Connaissance acquise** : On apprend quelque chose de réutilisable (ici : comportement spécifique de Portainer)
+3. **Documentation précise** : On peut expliquer le "pourquoi" aux futurs utilisateurs
+4. **Éviter les effets de bord** : Les contournements créent souvent d'autres problèmes
+
+**Workflow de debugging recommandé** :
+1. **Observer** : Collecter les symptômes et les logs d'erreur
+2. **Hypothèse** : Formuler des hypothèses sur la cause
+3. **Investiguer** : Tester les hypothèses méthodiquement (inspecter les mounts, vérifier les permissions, etc.)
+4. **Comprendre** : Identifier la cause racine (transformation des chemins par Portainer)
+5. **Corriger** : Appliquer la solution appropriée (chemins absolus)
+6. **Documenter** : Partager l'apprentissage pour éviter que d'autres rencontrent le même problème
+
+> "Ne cherchez pas trop tôt des solutions de contournement. Bien comprendre le problème AVANT de vouloir le contourner."
+
+Cette approche prend parfois plus de temps initialement, mais économise énormément de temps à long terme et améliore la maîtrise du système.
+
 ### Installation
 1. Ouvrir le projet dans VS Code
 2. Accepter la proposition d'ouvrir dans un Dev Container
