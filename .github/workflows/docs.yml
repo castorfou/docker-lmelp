@@ -2,7 +2,7 @@ name: 📚 Deploy Documentation
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, 7-la-cicd-est-cassee]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
