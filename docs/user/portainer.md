@@ -75,8 +75,8 @@ Portainer va :
 
 Aller dans **Stacks** → **lmelp-stack** pour voir :
 
-- Liste des services (mongo, lmelp, backoffice-backend, backoffice-frontend)
-- État de chaque container (vert = running)
+- Liste des services (`lmelp-mongo`, `lmelp-frontoffice`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`)
+- État de chaque container (vert = healthy)
 - Logs en temps réel
 
 
@@ -94,13 +94,9 @@ Aller dans **Stacks** → **lmelp-stack** pour voir :
 ### Consulter les logs
 
 1. **Stacks** → **lmelp-stack**
-2. Cliquer sur un service (ex: `lmelp`)
+2. Cliquer sur un service (ex: `lmelp-mongo`)
 3. Onglet **Logs**
 4. Activer **Auto-refresh** pour mise à jour automatique
-
-**Logs combinés** :
-
-Depuis la page de la stack, cliquer sur **View logs** pour voir les logs de tous les services.
 
 ### Redémarrer un service
 
@@ -110,7 +106,7 @@ Depuis la page de la stack, cliquer sur **View logs** pour voir les logs de tous
 
 **Redémarrer toute la stack** :
 
-Depuis la page de la stack, cliquer sur **Stop** puis **Start**.
+Depuis la page de la stack, cliquer sur **Stop this stack** puis **Start this stack**.
 
 ### Monitoring des ressources
 
@@ -176,34 +172,6 @@ Volumes créés :
 
 - Volumes Docker pour MongoDB data, backups, audios, logs
 - Ou bind mounts vers `./data/` selon la configuration
-
-### Accéder aux données
-
-**Via Portainer** :
-
-1. **Volumes** → sélectionner un volume
-2. Cliquer sur **Browse**
-3. Explorer les fichiers
-
-**Via SSH/SFTP** :
-
-Se connecter à l'hôte et naviguer vers :
-
-```bash
-cd /var/lib/docker/volumes/lmelp-stack_mongodb-data/_data
-# ou
-cd /path/to/docker-lmelp/data/mongodb
-```
-
-### Sauvegarder les volumes
-
-```bash
-# Créer un backup de volume Docker
-docker run --rm \
-  -v lmelp-stack_mongodb-data:/data \
-  -v $(pwd):/backup \
-  alpine tar czf /backup/mongodb-volume-backup.tar.gz -C /data .
-```
 
 ## Surveillance et alertes
 
