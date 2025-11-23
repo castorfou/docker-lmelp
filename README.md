@@ -14,6 +14,7 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 
 - **Stack complète** : MongoDB + LMELP App + Back-Office (Frontend + Backend)
 - **Backups automatisés** : Sauvegardes hebdomadaires de MongoDB avec rétention configurable
+- **Rotation des logs** : Rotation automatique des logs MongoDB avec anacron (adapté aux portables)
 - **Scripts de restauration** : Restauration facile depuis n'importe quel backup
 - **Prêt pour Portainer** : Déploiement en un clic via interface graphique
 - **Mode host network** : Configuration réseau simplifiée
@@ -34,14 +35,19 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 git clone https://github.com/castorfou/docker-lmelp.git
 cd docker-lmelp
 
-# 2. Configurer les variables d'environnement
+# 2. Créer le répertoire de logs MongoDB avec les bonnes permissions
+mkdir -p data/logs/mongodb
+sudo chown -R 999:999 data/logs/mongodb
+# Alternative sans sudo : chmod 777 data/logs/mongodb
+
+# 3. Configurer les variables d'environnement
 cp .env.example .env
 nano .env  # Ajouter au moins GEMINI_API_KEY ou OPENAI_API_KEY
 
-# 3. Démarrer la stack
+# 4. Démarrer la stack
 docker compose up -d
 
-# 4. Vérifier l'état (attendez que tous les services soient "healthy")
+# 5. Vérifier l'état (attendez que tous les services soient "healthy")
 docker compose ps
 ```
 
@@ -71,6 +77,7 @@ La documentation complète est disponible sur **[castorfou.github.io/docker-lmel
 - **[Installation](https://castorfou.github.io/docker-lmelp/user/installation/)** : Guide d'installation détaillé
 - **[Configuration](https://castorfou.github.io/docker-lmelp/user/configuration/)** : Variables d'environnement et personnalisation
 - **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
+- **[Rotation des logs MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-log-rotation/)** : Gestion automatique des logs
 - **[Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)** : Installation via interface graphique
 
 ## 🔧 Configuration minimale
@@ -107,17 +114,22 @@ LOG_PATH=./data/logs
 docker-lmelp/
 ├── docker-compose.yml      # Configuration Docker Compose
 ├── .env.example            # Template de configuration
+├── mongodb.Dockerfile      # Image MongoDB custom avec anacron
+├── config/                 # Configuration MongoDB
+│   └── mongod.conf         # Configuration avec rotation logs
 ├── scripts/                # Scripts de gestion MongoDB
 │   ├── backup_mongodb.sh   # Backup avec rétention
 │   ├── restore_mongodb.sh  # Restauration depuis backup
+│   ├── rotate_mongodb_logs.sh # Rotation manuelle des logs
 │   └── init_mongo.sh       # Initialisation base de données
-├── cron/                   # Configuration cron
-│   └── backup-cron         # Planification backups hebdomadaires
+├── cron/                   # Configuration cron/anacron
+│   ├── backup-cron         # Planification backups hebdomadaires
+│   └── mongodb-logrotate.anacron # Rotation logs (optionnel host)
 ├── data/                   # Données persistantes (non versionnées)
 │   ├── mongodb/            # Données MongoDB
 │   ├── backups/            # Backups MongoDB
 │   ├── audios/             # Fichiers audio LMELP
-│   └── logs/               # Logs applicatifs
+│   └── logs/               # Logs applicatifs et MongoDB
 └── docs/                   # Documentation MkDocs
     └── user/               # Documentation utilisateur
         ├── installation.md

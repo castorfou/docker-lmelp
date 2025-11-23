@@ -1,0 +1,29 @@
+# MongoDB Log Rotation using Anacron
+# ============================================================================
+# This file should be installed on the HOST machine (not in Docker container)
+# to ensure log rotation happens even if the laptop is off at scheduled time.
+#
+# Installation on HOST:
+#   sudo cp cron/mongodb-logrotate.anacron /etc/anacron.daily/mongodb-logrotate
+#   sudo chmod +x /etc/anacron.daily/mongodb-logrotate
+#
+# Or add to /etc/anacrontab:
+#   1  5  mongodb-logrotate  /path/to/docker-lmelp/cron/mongodb-logrotate.anacron
+#
+# Format for /etc/anacrontab:
+#   period delay job-identifier command
+#   - period: number of days between runs
+#   - delay: minutes to wait after boot before running
+#   - job-identifier: unique name for the job
+# ============================================================================
+
+#!/bin/bash
+# Rotate MongoDB logs in Docker container
+
+# Check if Docker container is running
+if docker ps --format '{{.Names}}' | grep -q '^lmelp-mongo$'; then
+    echo "$(date): Rotating MongoDB logs in container lmelp-mongo"
+    docker exec lmelp-mongo /scripts/rotate_mongodb_logs.sh --compress --keep-days 30
+else
+    echo "$(date): Container lmelp-mongo is not running, skipping log rotation"
+fi

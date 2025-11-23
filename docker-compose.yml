@@ -1,14 +1,19 @@
 services:
   # MongoDB Database
   mongo:
-    image: mongo:latest
+    build:
+      context: .
+      dockerfile: mongodb.Dockerfile
+    image: lmelp-mongo:latest
     container_name: lmelp-mongo
     restart: unless-stopped
+    command: ["mongod", "--config", "/etc/mongod.conf"]
     ports:
       - "${MONGO_PORT:-27018}:27017"
     volumes:
       - ${MONGO_DATA_PATH:-./data/mongodb}:/data/db
       - ${BACKUP_PATH:-./data/backups}:/backups
+      - ${MONGO_LOG_PATH:-./data/logs/mongodb}:/var/log/mongodb
     environment:
       - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
     healthcheck:
