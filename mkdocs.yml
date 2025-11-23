@@ -38,9 +38,11 @@ nav:
     - Installation: user/installation.md
     - Configuration: user/configuration.md
     - Backups & Restauration: user/backup-restore.md
+    - Rotation des logs MongoDB: user/mongodb-log-rotation.md
     - Déploiement Portainer: user/portainer.md
   - Documentation Développeur:
     - dev/README.md
+    - Image MongoDB personnalisée: dev/mongodb-custom-image.md
 
 markdown_extensions:
   - admonition
