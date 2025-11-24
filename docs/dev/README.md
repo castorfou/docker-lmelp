@@ -1,4 +1,4 @@
-# Documentation Développeur
+# A propos de la Documentation Développeur
 
 !!! info "À propos de cette section"
     Cette section contient la documentation pour les **développeurs** qui contribuent au projet docker-lmelp.

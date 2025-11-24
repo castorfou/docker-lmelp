@@ -1,0 +1,9 @@
+title: Documentation Utilisateur
+nav:
+  - A propos de la doc user: README.md
+  - Installation: installation.md
+  - Configuration: configuration.md
+  - Backups & Restauration: backup-restore.md
+  - Rotation des logs MongoDB (docker): mongodb-log-rotation.md
+  - Rotation des logs MongoDB (ubuntu): mongodb-log-rotation-native.md
+  - Déploiement Portainer: portainer.md
