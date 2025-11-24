@@ -15,6 +15,7 @@
         "PYTHON_VERSION": "3.11",
         "PYTHONPATH": "/workspaces/docker-lmelp/src",
         "UV_VENV_CLEAR": "1",
+        "UV_LINK_MODE": "copy",
         "TZ": "${localEnv:TZ}"
     },
 

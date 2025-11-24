@@ -1,0 +1,4 @@
+nav:
+  - Accueil: index.md
+  - Documentation Utilisateur: user
+  - Documentation Développeur: dev
