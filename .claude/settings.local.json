@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(gh run list:*)",
-      "Bash(gh workflow:*)"
+      "Bash(gh workflow:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(pytest:*)"
     ],
     "deny": [],
     "ask": []
