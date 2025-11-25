@@ -182,3 +182,8 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+# Configuration Pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["data", "data/*", ".git", ".venv", "dist", "build", "*.egg"]
