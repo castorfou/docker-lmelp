@@ -1,9 +1,6 @@
 services:
   # MongoDB Database
   mongo:
-    build:
-      context: .
-      dockerfile: mongodb.Dockerfile
     image: ghcr.io/castorfou/lmelp-mongo:latest
     container_name: lmelp-mongo
     restart: unless-stopped
