@@ -4,7 +4,8 @@
       "Bash(gh run list:*)",
       "Bash(gh workflow:*)",
       "Bash(pre-commit run:*)",
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Bash(ruff check:*)"
     ],
     "deny": [],
     "ask": []
