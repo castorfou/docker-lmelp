@@ -18,7 +18,7 @@ La stack LMELP inclut un système de backup automatisé qui :
 
 Le backup est intégré dans le conteneur MongoDB avec anacron :
 
-- **Fréquence** : Hebdomadaire (tous les 7 jours) via anacron
+- **Fréquence** : Vérification quotidienne, exécution si le dernier backup a > 7 jours
 - **Délai après démarrage** : 10 minutes
 - **Rétention** : 7 semaines (49 jours)
 - **Emplacement** : `./data/backups/` (configurable via `BACKUP_PATH`)
@@ -50,22 +50,25 @@ docker exec lmelp-mongo cat /var/log/mongodb/backup.log
 
 ### Forcer un backup manuel
 
-Exécuter le script de backup manuellement :
+Exécuter le script de backup manuellement (utiliser `FORCE_BACKUP=1` pour ignorer la vérification de date) :
 
 ```bash
 # Depuis l'hôte
-docker exec lmelp-mongo /scripts/backup_mongodb.sh
+docker exec -e FORCE_BACKUP=1 lmelp-mongo /scripts/backup_mongodb.sh
 
 # Ou entrer dans le container
 docker exec -it lmelp-mongo bash
-/scripts/backup_mongodb.sh
+FORCE_BACKUP=1 /scripts/backup_mongodb.sh
 ```
 
 ### Modifier la planification
 
-La planification anacron est configurée dans `mongodb.Dockerfile`. Pour modifier la fréquence :
+La logique de planification est double :
+1. **Anacron** (dans `mongodb.Dockerfile`) lance le script de backup **tous les jours**.
+2. **Le script de backup** (`scripts/backup_mongodb.sh`) vérifie si le dernier backup a plus de 7 jours.
 
-1. Éditer `mongodb.Dockerfile`, ligne avec `mongodb-backup` dans `/etc/anacrontab`
+Pour modifier la fréquence réelle (ex: passer à 3 jours) :
+1. Modifier le script `scripts/backup_mongodb.sh` pour changer la condition de vérification (actuellement 7 jours).
 2. Rebuilder l'image :
 
 ```bash
@@ -73,9 +76,7 @@ docker compose build mongo
 docker compose up -d mongo
 ```
 
-**Format anacron** : `période délai job-identifier commande`
-- `période` : Nombre de jours entre les exécutions (par défaut : 7)
-- `délai` : Minutes à attendre après boot (par défaut : 10)
+**Note** : Anacron assure que le script est lancé quotidiennement et à chaque redémarrage du conteneur, garantissant qu'aucun backup n'est manqué si la machine était éteinte.
 
 ### Modifier la rétention
 

@@ -238,36 +238,12 @@ Les backups plus anciens que cette durée seront automatiquement supprimés lors
 
 ### Planification des backups
 
-La planification est définie dans `cron/backup-cron`. Par défaut : **chaque dimanche à 2h du matin**.
+La planification est gérée automatiquement par le conteneur MongoDB (via anacron) et le script de backup.
 
-Pour modifier la planification, éditer `cron/backup-cron` :
+- **Vérification** : Quotidienne (et à chaque démarrage)
+- **Exécution** : Uniquement si le dernier backup a plus de 7 jours
 
-```cron
-# Format: minute heure jour_du_mois mois jour_de_la_semaine
-0 2 * * 0 /scripts/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
-```
-
-**Exemples de planifications** :
-
-```cron
-# Tous les jours à 3h du matin
-0 3 * * * /scripts/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
-
-# Tous les lundis à 1h du matin
-0 1 * * 1 /scripts/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
-
-# Le 1er de chaque mois à 2h
-0 2 1 * * /scripts/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
-
-# Deux fois par semaine (mardi et vendredi à 2h)
-0 2 * * 2,5 /scripts/backup_mongodb.sh >> /var/log/mongo-backup.log 2>&1
-```
-
-Après modification, recréer le container de backup :
-
-```bash
-docker compose up -d --force-recreate mongo-backup
-```
+Pour plus de détails sur le fonctionnement et comment forcer un backup, voir la [documentation Backups & Restauration](backup-restore.md).
 
 
 ## Validation de la configuration

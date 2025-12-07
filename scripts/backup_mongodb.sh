@@ -22,7 +22,40 @@ MONGO_HOST="${MONGO_HOST:-localhost}"
 MONGO_PORT="${MONGO_PORT:-27017}"
 MONGO_DATABASE="${MONGO_DATABASE:-masque_et_la_plume}"
 BACKUP_RETENTION_WEEKS="${BACKUP_RETENTION_WEEKS:-7}"
-BACKUP_DIR="/backups"
+BACKUP_DIR="${BACKUP_DIR:-/backups}"
+
+# Check if a recent backup exists (unless FORCE_BACKUP is set)
+# This allows running the script daily but only creating backups weekly
+if [ -z "${FORCE_BACKUP}" ]; then
+    # Find last backup directory
+    LAST_BACKUP=$(find "${BACKUP_DIR}" -maxdepth 1 -name "backup_*" -type d | sort | tail -n 1)
+
+    if [ -n "${LAST_BACKUP}" ]; then
+        # Extract date from folder name (format: backup_YYYY-MM-DD_HH-MM-SS)
+        BACKUP_NAME=$(basename "${LAST_BACKUP}")
+        BACKUP_DATE_STR=$(echo "${BACKUP_NAME}" | cut -d'_' -f2)
+
+        # Calculate age in days
+        if date -d "${BACKUP_DATE_STR}" >/dev/null 2>&1; then
+            BACKUP_TS=$(date -d "${BACKUP_DATE_STR}" +%s)
+            CURRENT_TS=$(date +%s)
+            DIFF_SECONDS=$((CURRENT_TS - BACKUP_TS))
+            DIFF_DAYS=$((DIFF_SECONDS / 86400))
+
+            echo "Last backup found: ${BACKUP_NAME} (${DIFF_DAYS} days ago)"
+
+            if [ "${DIFF_DAYS}" -lt 7 ]; then
+                echo "Backup is less than 7 days old. Skipping."
+                echo "Use FORCE_BACKUP=1 to force a new backup."
+                exit 0
+            fi
+        else
+            echo "Warning: Could not parse date from ${BACKUP_NAME}. Proceeding with backup."
+        fi
+    else
+        echo "No previous backup found."
+    fi
+fi
 
 # Ensure backup directory exists
 mkdir -p "${BACKUP_DIR}"

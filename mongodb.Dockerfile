@@ -55,15 +55,15 @@ RUN echo '#!/bin/bash' > /etc/anacron.weekly/mongodb-backup && \
 # Format: period delay job-identifier command
 # Daily log rotation (every 1 day, wait 5 minutes after boot)
 RUN echo '1 5 mongodb-logrotate /etc/anacron.daily/mongodb-logrotate' >> /etc/anacrontab
-# Weekly backup (every 7 days, wait 10 minutes after boot)
-RUN echo '7 10 mongodb-backup /etc/anacron.weekly/mongodb-backup' >> /etc/anacrontab
+# Weekly backup (every 1 day check, script handles 7 day logic, wait 10 minutes after boot)
+RUN echo '1 10 mongodb-backup /etc/anacron.weekly/mongodb-backup' >> /etc/anacrontab
 
 # Create a startup script that runs both MongoDB and anacron
 RUN echo '#!/bin/bash' > /docker-entrypoint-anacron.sh && \
     echo 'set -e' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
-    echo '# Start anacron in the background' >> /docker-entrypoint-anacron.sh && \
-    echo 'anacron -d &' >> /docker-entrypoint-anacron.sh && \
+    echo '# Start anacron loop in the background (check every hour)' >> /docker-entrypoint-anacron.sh && \
+    echo '(while true; do anacron -d; sleep 3600; done) &' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
     echo '# Run the original MongoDB entrypoint' >> /docker-entrypoint-anacron.sh && \
     echo 'exec /usr/local/bin/docker-entrypoint.sh "$@"' >> /docker-entrypoint-anacron.sh && \
