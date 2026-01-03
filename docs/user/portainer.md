@@ -56,6 +56,11 @@ Repository URL: https://github.com/castorfou/docker-lmelp
 Repository reference: refs/heads/main
 Compose path: docker-compose.yml
 ```
+
+**GitOps updates** : Cocher pour detecter les mises a jour de `docker-compose.yml`
+
+
+
 **Environment Variables** : Cliquer sur Load variables from .env file et Selectionner le fichier `.env`
 
 ### Étape 3 : Déployer

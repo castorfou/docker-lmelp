@@ -90,8 +90,8 @@ Les références aux issues GitHub ont leur place dans :
 ### Commandes utiles
 
 ```bash
-# Prévisualiser la documentation localement
-mkdocs serve
+# Prévisualiser la documentation localement (sur le port 8081)
+mkdocs serve -a localhost:8081
 
 # Construire la documentation pour la production
 mkdocs build --strict
