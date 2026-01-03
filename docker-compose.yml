@@ -53,27 +53,11 @@ services:
       - AUDIO_BASE_PATH=/app/audios
       - LMELP_MODE=${LMELP_MODE:-web}
 
-      # LLM API Keys - Google Gemini
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-
-      # LLM API Keys - Google Vertex AI
-      - GOOGLE_PROJECT_ID=${GOOGLE_PROJECT_ID:-}
-      - GOOGLE_AUTH_FILE=${GOOGLE_AUTH_FILE:-}
-
-      # LLM API Keys - OpenAI
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-
       # LLM API Keys - Azure OpenAI
       - AZURE_API_KEY=${AZURE_API_KEY:-}
       - AZURE_ENDPOINT=${AZURE_ENDPOINT:-}
       - AZURE_API_VERSION=${AZURE_API_VERSION:-}
 
-      # LLM API Keys - LiteLLM (local models)
-      - LITELLM_API_KEY=${LITELLM_API_KEY:-}
-
-      # Google Custom Search (for web search)
-      - GOOGLE_CUSTOM_SEARCH_API_KEY=${GOOGLE_CUSTOM_SEARCH_API_KEY:-}
-      - SEARCH_ENGINE_ID=${SEARCH_ENGINE_ID:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
       interval: 30s
@@ -106,6 +90,11 @@ services:
       - ENVIRONMENT=production
       - API_HOST=0.0.0.0
       - API_PORT=8000
+      # LLM API Keys - Azure OpenAI
+      - AZURE_API_KEY=${AZURE_API_KEY:-}
+      - AZURE_ENDPOINT=${AZURE_ENDPOINT:-}
+      - AZURE_API_VERSION=${AZURE_API_VERSION:-}
+      - AZURE_DEPLOYMENT_NAME=${AZURE_DEPLOYMENT_NAME:-}
       # Calibre integration (optionnel)
       - CALIBRE_VIRTUAL_LIBRARY_TAG=${CALIBRE_VIRTUAL_LIBRARY_TAG:-}
     healthcheck:
