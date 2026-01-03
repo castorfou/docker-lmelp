@@ -14,7 +14,7 @@ La stack nécessite Docker et Docker Compose installés sur votre système.
 
 Portainer fournit une interface web pour gérer vos stacks Docker.
 
-Accéder à Portainer : `http://localhost:9000` ou `https://localhost:9443`
+Accéder à Portainer : http://localhost:9000 ou https://localhost:9443
 
 ## Installation de la Stack LMELP
 

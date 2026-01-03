@@ -115,6 +115,7 @@ OPENAI_API_KEY=sk-...your-openai-key
 AZURE_API_KEY=your-azure-key
 AZURE_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_API_VERSION=2024-02-15-preview
+AZURE_DEPLOYMENT_NAME=gpt-4o
 ```
 
 **Configuration** :
