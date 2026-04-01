@@ -1,6 +1,7 @@
 site_name: docker-lmelp
 site_description: proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso
 site_url: https://castorfou.github.io/docker-lmelp
+repo_url: https://github.com/castorfou/docker-lmelp
 use_directory_urls: true
 
 # Exclude internal directories from documentation
