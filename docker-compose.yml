@@ -138,6 +138,40 @@ services:
     networks:
       - lmelp-network
 
+  # LMELP Export Service (Android ADB)
+  lmelp-export:
+    image: ghcr.io/castorfou/lmelp-mobile-export:latest
+    container_name: lmelp-export
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
+    environment:
+      - LMELP_MONGO_URI=mongodb://mongo:27017
+      - LMELP_CALIBRE_DB=/calibre/metadata.db
+      - LMELP_CALIBRE_VIRTUAL_LIBRARY=${CALIBRE_VIRTUAL_LIBRARY_TAG:-guillaume}
+      - ADB_HOST=${ADB_HOST:-host-gateway}
+      - ADB_PORT=${ADB_PORT:-5037}
+    extra_hosts:
+      - "host-gateway:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pymongo; pymongo.MongoClient('mongodb://mongo:27017').admin.command('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
 
 networks:
   lmelp-network:

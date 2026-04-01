@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# PyFoundry - Configuration de l'environnement de développement
+# docker-lmelp - Configuration de l'environnement de développement
 # =============================================================================
 set -e
 
@@ -12,10 +12,44 @@ echo "=================================================================="
 # Mise à jour du système
 update_system() {
     echo "Mise à jour des paquets système..."
+    export DEBIAN_FRONTEND=noninteractive
+    # Empêcher tzdata de poser des questions et utiliser la timezone UTC par défaut
+    export TZ="Etc/UTC"
+
+    echo "Configuration de la source APT Yarn..."
+    sudo mkdir -p /etc/apt/keyrings
+    if [ ! -f /etc/apt/keyrings/yarn.gpg ]; then
+        echo "Installation de la clé GPG Yarn..."
+        curl -fsSL https://dl.yarnpkg.com/debian/pubkey.gpg \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/yarn.gpg
+    fi
+    echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian stable main" \
+        | sudo tee /etc/apt/sources.list.d/yarn.list > /dev/null
+
     sudo apt-get update -qq
-    sudo apt-get upgrade -y -qq
+
+    # Options dpkg pour éviter les prompts de configuration
+    sudo apt-get -y -qq -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confnew" upgrade || {
+        echo "⚠️  'apt upgrade' a échoué ; continuer sans interrompre le postCreateCommand"
+        return 0
+    }
+
     echo "Système mis à jour"
 }
+
+# outil pour ajouter une ligne dans .zshrc si elle n'existe pas déjà
+ensure_zshrc_line() {
+    local line="$1"
+    local zshrc="$HOME/.zshrc"
+    if [ ! -f "$zshrc" ]; then
+        touch "$zshrc"
+    fi
+    if ! grep -Fxq "$line" "$zshrc" 2>/dev/null; then
+        echo "$line" >> "$zshrc"
+    fi
+}
+
 
 # Vérification et installation d'uv (priorité: devcontainer feature, fallback: installation manuelle)
 ensure_uv() {
@@ -34,28 +68,19 @@ ensure_uv() {
 create_python_environment() {
     echo "Configuration de l'environnement Python $PYTHON_VERSION ..."
 
-    echo "Création de l'environnement virtuel..."
-    uv venv .venv --python $PYTHON_VERSION
-
-    source .venv/bin/activate
-    echo "Installation des dépendances..."
-    uv pip install -e .
-
-    if [[ -f "pyproject.toml" ]] && grep -q "\[project.optional-dependencies\]" pyproject.toml; then
-        echo "Installation des dépendances de développement..."
-        uv pip install -e ".[dev]"
+    echo "Création de l'environnement virtuel dans /home/vscode/.venv"
+    VENV_HOME="/home/vscode/.venv"
+    if [ -d "$VENV_HOME" ]; then
+        echo "Un venv existe déjà à $VENV_HOME, je l'utilise."
+    else
+        uv venv "$VENV_HOME" --python $PYTHON_VERSION
     fi
 
-    echo "Génération du fichier de verrouillage..."
-    uv pip freeze > requirements.lock
-
-    echo "Configuration de l'activation automatique..."
-    PROJECT_PATH=$(pwd)
-    for shell_config in "$HOME/.bashrc" "$HOME/.zshrc"; do
-        if [[ -f "$shell_config" ]] && ! grep -q "source $PROJECT_PATH/.venv/bin/activate" "$shell_config"; then
-            echo "source $PROJECT_PATH/.venv/bin/activate" >> "$shell_config"
-        fi
-    done
+    # Activer l'environnement créé dans $HOME/.venv
+    source "$VENV_HOME/bin/activate"
+    echo "Installation des dépendances..."
+    # Utiliser --active pour cibler l'environnement virtuel activé (hors du dossier projet)
+    uv sync --active --all-extras
 
     echo "Environnement Python configuré"
 }
@@ -98,25 +123,32 @@ EOF
 }
 
 
-# Configuration Git et GitHub
+# Configuration Git
 setup_git() {
     echo "Configuration Git..."
 
     # Initialisation du dépôt si pas encore fait
     if [ ! -d ".git" ]; then
         echo "Initialisation du dépôt Git..."
-        git init --initial-branch=main
+        git init
+        git branch -M main
 
-        # Création du commit initial
-        echo "Création du commit initial..."
+        # Configuration de l'utilisateur si non défini (pour éviter l'échec du commit)
+        if [ -z "$(git config --global user.email)" ]; then
+            echo "Configuration d'un utilisateur Git par défaut..."
+            git config user.email "default@michelin.com"
+            git config user.name "Default User"
+        fi
         git add .
-        git commit -m "Initial commit: PyFoundry project setup
-
-Project: docker-lmelp
-Template: PyFoundry v0.3
-Features: ruff, mypy, pre-commit hooks"
+        git commit -m "Initial commit"
+        echo "✅ Dépôt Git initialisé et premier commit effectué"
+    else
+        echo "Dépôt Git déjà existant"
     fi
+}
 
+# Configuration pre-commit
+setup_pre-commit() {
     # Configuration pre-commit si disponible
     if [ -f ".pre-commit-config.yaml" ]; then
         echo "Configuration des hooks pre-commit..."
@@ -148,6 +180,14 @@ Features: ruff, mypy, pre-commit hooks"
             echo "⚠️  pre-commit non installé, ignoré"
         fi
     fi
+}
+
+
+# Configuration GitHub
+setup_github() {
+    echo "Configuration GitHub..."
+
+
 
     # Configuration du remote GitHub si username fourni
     if [ "castor_fou" != "votre-username" ]; then
@@ -194,8 +234,44 @@ Features: ruff, mypy, pre-commit hooks"
 
         echo "✅ Remote GitHub configuré"
     fi
+}
 
-    echo "Configuration Git terminée"
+# config zsh
+config_zsh() {
+    echo "Configuration de zsh..."
+    # Ajouter des configurations zsh spécifiques si nécessaire
+
+    local p10k_source=".devcontainer/resources/.p10k.zsh"
+    if [ -f "$p10k_source" ]; then
+        echo "Copie du thème Powerlevel10k vers $HOME/.p10k.zsh..."
+        cp "$p10k_source" "$HOME/.p10k.zsh"
+        chmod 0644 "$HOME/.p10k.zsh"
+    else
+        echo "⚠️  Thème Powerlevel10k introuvable : $p10k_source"
+    fi
+
+    cd ~
+    rm -rf .oh-my-zsh
+
+    sudo apt install -y fonts-powerline
+
+    # get last version at https://github.com/deluan/zsh-in-docker
+    sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v1.2.1/zsh-in-docker.sh)" -- \
+        -p git \
+        -p python \
+        -p history \
+        -p 'history-substring-search' \
+        -p 'virtualenv' \
+        -p https://github.com/zsh-users/zsh-autosuggestions \
+        -p https://github.com/zsh-users/zsh-completions
+
+    ensure_zshrc_line '[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh'
+
+    ensure_zshrc_line 'export PATH="$HOME/.local/bin:$PATH"'
+
+    ensure_zshrc_line 'source /home/vscode/.venv/bin/activate'
+
+    echo "✅ zsh configuré"
 }
 
 # Exécution des étapes
@@ -204,6 +280,9 @@ ensure_uv
 create_python_environment
 setup_node
 setup_git
+setup_github
+setup_pre-commit
+config_zsh
 
 echo ""
 echo "=================================================================="
