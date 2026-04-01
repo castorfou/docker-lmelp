@@ -4,11 +4,6 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 
 **Déployable facilement** via Docker Compose ou Portainer sur NAS (Synology, QNAP) ou PC personnel.
 
-[![CI](https://github.com/castorfou/docker-lmelp/actions/workflows/ci.yml/badge.svg)](https://github.com/castorfou/docker-lmelp/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/castorfou/docker-lmelp/branch/main/graph/badge.svg)](https://codecov.io/gh/castorfou/docker-lmelp)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 ## ✨ Fonctionnalités
 

@@ -105,14 +105,17 @@ Cette approche prend parfois plus de temps initialement, mais économise énorm�
 Les dépendances sont gérées via `uv` et définies dans `pyproject.toml`:
 
 ```bash
-# Installer/synchroniser les dépendances
-uv pip sync
+# Sync des dépendances
+uv sync --active --all-extras
 
-# Ajouter une nouvelle dépendance
-uv add package-name
+# Tests
+uv run --active pytest
 
-# Ajouter une dépendance de développement
-uv add --dev package-name
+# Documentation
+uv run --active mkdocs build --strict
+
+# Precommit
+pre-commit run --all-files
 ```
 
 ## Qualité du Code
