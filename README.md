@@ -14,6 +14,7 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 
 - **Stack complète** : MongoDB + LMELP App + Back-Office (Frontend + Backend)
 - **Intégration Calibre** : Accès optionnel à votre bibliothèque Calibre existante depuis le back-office
+- **Export Android** : Synchronisation automatique vers téléphone Android via ADB (optionnel)
 - **Backups automatisés** : Sauvegardes hebdomadaires de MongoDB avec anacron (adapté aux NAS/PC non 24/7)
 - **Rotation des logs** : Rotation automatique quotidienne des logs MongoDB
 - **Image MongoDB personnalisée** : Disponible sur ghcr.io avec backup et rotation intégrés
@@ -69,6 +70,7 @@ docker compose ps
 | **lmelp** | ghcr.io/castorfou/lmelp:latest | 8501 | Application Streamlit |
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web |
+| **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Export vers Android via ADB |
 
 ## 📚 Documentation complète
 
@@ -77,6 +79,7 @@ La documentation complète est disponible sur **[castorfou.github.io/docker-lmel
 - **[Installation](https://castorfou.github.io/docker-lmelp/user/installation/)** : Guide d'installation détaillé
 - **[Configuration](https://castorfou.github.io/docker-lmelp/user/configuration/)** : Variables d'environnement et personnalisation
 - **[Intégration Calibre](https://castorfou.github.io/docker-lmelp/user/calibre-setup/)** : Accès à votre bibliothèque Calibre (optionnel)
+- **[Export vers Android](https://castorfou.github.io/docker-lmelp/user/export-android/)** : Synchronisation avec l'application mobile (optionnel)
 - **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
 - **[Rotation des logs MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-log-rotation/)** : Gestion automatique des logs
 - **[Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)** : Installation via interface graphique

@@ -283,5 +283,7 @@ docker rmi mongo:latest
 ## Prochaines étapes
 
 - [Configuration détaillée](configuration.md) : Personnaliser votre installation
+- [Intégration Calibre](calibre-setup.md) : Connecter une bibliothèque Calibre (optionnel)
+- [Export vers Android](export-android.md) : Synchroniser avec l'application mobile (optionnel)
 - [Gestion des backups](backup-restore.md) : Sauvegarder et restaurer vos données
 - [Déploiement Portainer](portainer.md) : Utiliser l'interface graphique
