@@ -1,28 +1,29 @@
 {
     "name": "docker-lmelp - Dev Environment",
-	"workspaceFolder": "/workspaces/docker-lmelp",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
+    "workspaceFolder": "/workspaces/docker-lmelp",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
     "runArgs": [
         "--network=host",
-        "--label", "com.centurylinklabs.watchtower.enable=false",
-        "--env", "CONTAINER_NAME=vscode-dev-container_docker-lmelp"  // pragma: allowlist secret
+        "--label",
+        "com.centurylinklabs.watchtower.enable=false",
+        "--env",
+        "CONTAINER_NAME=vscode-dev-container_docker-lmelp" // pragma: allowlist secret
     ],
-
     // Variables d'environnement
     "containerEnv": {
         "PROJECT_NAME": "docker-lmelp",
         "PROJECT_SLUG": "docker-lmelp",
         "GITHUB_USERNAME": "castorfou",
         "PYTHON_VERSION": "3.11",
+        "WORKSPACE_FOLDER": "/workspaces/docker-lmelp",
         "PYTHONPATH": "/workspaces/docker-lmelp/src",
         "UV_VENV_CLEAR": "1",
         "UV_LINK_MODE": "copy",
         "UV_PYTHON": "/home/vscode/.venv/bin/python",
         "TZ": "${localEnv:TZ}"
     },
-
     "customizations": {
         "vscode": {
             "extensions": [
@@ -43,11 +44,11 @@
                 "GitHub.copilot-chat",
                 "dbaeumer.vscode-eslint",
                 "ms-python.autopep8",
-				"xelad0m.jupyter-toc",
+                "xelad0m.jupyter-toc",
                 "anthropic.claude-code",
-				"catppuccin.catppuccin-vsc-icons",
-				"catppuccin.catppuccin-vsc",
-				"pomdtr.excalidraw-editor",
+                "catppuccin.catppuccin-vsc-icons",
+                "catppuccin.catppuccin-vsc",
+                "pomdtr.excalidraw-editor",
                 "ms-azuretools.vscode-containers"
             ],
             "settings": {
@@ -55,15 +56,15 @@
                 "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
                 "python.analysis.autoImportCompletions": true,
                 "python.analysis.typeCheckingMode": "basic",
-				"terminal.integrated.env.linux": {
-					"VIRTUAL_ENV": "/home/vscode/.venv",
-					"PATH": "/home/vscode/.venv/bin:${env:PATH}"
-				},
-
+                "terminal.integrated.env.linux": {
+                    "VIRTUAL_ENV": "/home/vscode/.venv",
+                    "PATH": "/home/vscode/.venv/bin:${env:PATH}"
+                },
                 // Configuration générale
                 "editor.minimap.enabled": true,
-                "editor.rulers": [100],
-
+                "editor.rulers": [
+                    100
+                ],
                 // Exclusions pour améliorer les performances
                 "files.exclude": {
                     "**/__pycache__": true,
@@ -72,7 +73,6 @@
                     "**/.git": true,
                     "**/.venv": true
                 },
-
                 "search.exclude": {
                     "**/__pycache__": true,
                     "**/.venv": true,
@@ -83,7 +83,6 @@
             }
         }
     },
-
     // Features devcontainer
     "features": {
         "ghcr.io/va-h/devcontainers-features/uv:1": {},
@@ -94,25 +93,21 @@
         "ghcr.io/devcontainers/features/node:1": {
             "nodeGypDependencies": true,
             "version": "lts",
-			"installYarnUsingApt": false
+            "installYarnUsingApt": false
         },
         "ghcr.io/devcontainers/features/docker-in-docker:2": {}
     },
-
     // Montages pour hériter de la config git du host et de la timezone
     "mounts": [
         "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached,readonly",
         "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached,readonly",
         "source=/etc/localtime,target=/etc/localtime,type=bind,consistency=cached,readonly"
     ],
-
     // Configuration du shell et de l'environnement
     "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
     "postStartCommand": "echo '🚀 docker-lmelp - Environnement prêt!'",
-
     // Utilisateur non-root pour la sécurité
     "remoteUser": "vscode",
-
     // Optimisations de performance
     "shutdownAction": "none"
 }
