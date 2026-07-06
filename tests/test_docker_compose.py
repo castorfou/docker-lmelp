@@ -97,3 +97,75 @@ class TestDockerComposeConfiguration:
         assert "/health" in command_str, (
             "frontend healthcheck should use /health endpoint"
         )
+
+
+class TestBabelioCacheConfiguration:
+    """Tests for Babelio cache externalization in backend service."""
+
+    def _get_backend(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["backend"]
+
+    def _get_env_list(self, backend):
+        """Return backend environment as a list of strings."""
+        env = backend.get("environment", [])
+        if isinstance(env, dict):
+            return [f"{k}={v}" for k, v in env.items()]
+        return env
+
+    def test_backend_has_babelio_cache_dir_env(self):
+        """Verify that backend defines BABELIO_CACHE_DIR environment variable."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "BABELIO_CACHE_DIR" in env_keys, (
+            "backend should define BABELIO_CACHE_DIR environment variable"
+        )
+
+    def test_backend_has_babelio_fair_sec_env(self):
+        """Verify that backend defines BABELIO_FAIR_SEC environment variable."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "BABELIO_FAIR_SEC" in env_keys, (
+            "backend should define BABELIO_FAIR_SEC environment variable"
+        )
+
+    def test_backend_has_babelio_cache_day_env(self):
+        """Verify that backend defines BABELIO_CACHE_DAY environment variable."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "BABELIO_CACHE_DAY" in env_keys, (
+            "backend should define BABELIO_CACHE_DAY environment variable"
+        )
+
+    def test_babelio_cache_dir_fixed_value(self):
+        """Verify that BABELIO_CACHE_DIR is set to /cache/babelio (fixed path)."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        cache_dir_entry = next(
+            (e for e in env_list if e.startswith("BABELIO_CACHE_DIR=")), None
+        )
+        assert cache_dir_entry is not None, "BABELIO_CACHE_DIR should be defined"
+        assert cache_dir_entry == "BABELIO_CACHE_DIR=/cache/babelio", (
+            "BABELIO_CACHE_DIR should be set to /cache/babelio"
+        )
+
+    def test_backend_has_babelio_cache_volume(self):
+        """Verify that backend mounts an external volume for Babelio cache."""
+        backend = self._get_backend()
+        volumes = backend.get("volumes", [])
+        has_babelio_volume = any("/cache/babelio" in str(v) for v in volumes)
+        assert has_babelio_volume, "backend should mount a volume for /cache/babelio"
+
+    def test_babelio_cache_volume_uses_env_variable(self):
+        """Verify that Babelio cache volume path is configurable via BABELIO_CACHE_PATH."""
+        backend = self._get_backend()
+        volumes = backend.get("volumes", [])
+        babelio_volume = next((v for v in volumes if "/cache/babelio" in str(v)), None)
+        assert babelio_volume is not None, "Babelio cache volume should exist"
+        assert "BABELIO_CACHE_PATH" in str(babelio_volume), (
+            "Babelio cache volume should use BABELIO_CACHE_PATH variable"
+        )

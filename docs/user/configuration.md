@@ -163,6 +163,20 @@ MONGODB_URL=mongodb://localhost:27017/masque_et_la_plume
 
 La variable `MONGODB_URL` doit correspondre à la configuration MongoDB (même hôte que `DB_HOST`).
 
+### Cache Babelio
+
+Le backend utilise un cache disque pour les requêtes Babelio, avec un mécanisme de fair-use et un circuit breaker.
+
+```bash
+# Délai minimum entre les requêtes Babelio (secondes)
+BABELIO_FAIR_SEC=2.0
+
+# Durée de validité du cache Babelio (jours)
+BABELIO_CACHE_DAY=30
+```
+
+Le chemin du cache sur l'hôte est configuré via `BABELIO_CACHE_PATH` (voir section [Chemins des volumes](#chemins-des-volumes)).
+
 ### Frontend
 
 ```bash
@@ -192,6 +206,9 @@ LOG_PATH=./data/logs
 
 # Logs MongoDB (mongod.log, backup.log, logrotate.log)
 MONGO_LOG_PATH=./data/logs/mongodb
+
+# Cache Babelio (persisté entre redéploiements)
+BABELIO_CACHE_PATH=./data/cache/babelio
 ```
 
 **Note sur les logs** :
@@ -213,12 +230,13 @@ BACKUP_PATH=/mnt/storage/lmelp/backups
 AUDIO_PATH=/mnt/storage/lmelp/audios
 LOG_PATH=/mnt/storage/lmelp/logs
 MONGO_LOG_PATH=/mnt/storage/lmelp/logs/mongodb
+BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/mongodb}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/mongodb,cache/babelio}
 chmod -R 755 /mnt/storage/lmelp
 
 # MongoDB a besoin que le répertoire de logs ait les bonnes permissions
