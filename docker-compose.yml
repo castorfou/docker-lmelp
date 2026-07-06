@@ -85,6 +85,7 @@ services:
       - mongo
     volumes:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
+      - ${BABELIO_CACHE_PATH:-./data/cache/babelio}:/cache/babelio
     environment:
       - MONGODB_URL=mongodb://mongo:27017/${MONGO_DATABASE:-masque_et_la_plume}
       - ENVIRONMENT=production
@@ -97,6 +98,10 @@ services:
       - AZURE_DEPLOYMENT_NAME=${AZURE_DEPLOYMENT_NAME:-}
       # Calibre integration (optionnel)
       - CALIBRE_VIRTUAL_LIBRARY_TAG=${CALIBRE_VIRTUAL_LIBRARY_TAG:-}
+      # Cache Babelio (persisté entre redéploiements)
+      - BABELIO_CACHE_DIR=/cache/babelio
+      - BABELIO_FAIR_SEC=${BABELIO_FAIR_SEC:-2.0}
+      - BABELIO_CACHE_DAY=${BABELIO_CACHE_DAY:-30}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
