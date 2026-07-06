@@ -147,6 +147,7 @@ data/logs/*
 !data/backups/.gitkeep
 !data/audios/.gitkeep
 !data/logs/.gitkeep
+data/cache/*
 
 # ML models
 *.model
