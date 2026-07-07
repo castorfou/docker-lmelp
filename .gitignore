@@ -148,6 +148,7 @@ data/logs/*
 !data/audios/.gitkeep
 !data/logs/.gitkeep
 data/cache/*
+!data/cache/babelio/.gitkeep
 
 # ML models
 *.model

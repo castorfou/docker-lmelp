@@ -177,6 +177,41 @@ BABELIO_CACHE_DAY=30
 
 Le chemin du cache sur l'hôte est configuré via `BABELIO_CACHE_PATH` (voir section [Chemins des volumes](#chemins-des-volumes)).
 
+!!! warning "Le répertoire de cache reste vide après ajout du volume ?"
+    Si `data/cache/babelio` (ou le chemin défini par `BABELIO_CACHE_PATH`) reste vide alors
+    que la page de contrôle Babelio du back-office affiche des entrées, c'est presque toujours
+    parce que le conteneur `backend` **n'a pas été recréé** depuis l'ajout de ce volume et de ces
+    variables d'environnement dans `docker-compose.yml`.
+
+    **Watchtower ne suffit pas** : il se contente de mettre à jour l'image du conteneur avec la
+    configuration Docker déjà en place (mêmes volumes, mêmes variables d'env) — il ne relit jamais
+    `docker-compose.yml`. Tant que le conteneur n'a pas été explicitement recréé,
+    `BABELIO_CACHE_DIR` n'existe pas dans son environnement, et l'application retombe sur un
+    chemin de cache interne
+    (`data/processed/babelio_cache`), non persisté et invisible côté hôte.
+
+    **Vérifier** :
+    ```bash
+    docker exec lmelp-backoffice-backend env | grep BABELIO_CACHE_DIR
+    docker inspect lmelp-backoffice-backend --format '{{json .Mounts}}'
+    ```
+    Si `BABELIO_CACHE_DIR` est absent ou que le mount `/cache/babelio` n'apparaît pas, il faut
+    recréer le conteneur `backend` :
+
+    - **Portainer** : "Update the stack" (en cochant le re-pull de l'image).
+    - **Si la stack apparaît en statut "Limited" ("created outside of Portainer")** : le bouton
+      "Update the stack" ne réapplique pas la config. Passer par la CLI, directement sur
+      l'hôte/NAS, depuis le dossier du repo :
+      ```bash
+      # 1. Retrouver le nom du projet Compose utilisé par Portainer pour cette stack
+      docker inspect lmelp-mongo --format '{{index .Config.Labels "com.docker.compose.project"}}'
+
+      # 2. Recréer uniquement le backend avec ce nom de projet (⚠️ sans -p, Compose utilise
+      #    par défaut le nom du dossier courant, différent du nom de projet Portainer — ce qui
+      #    provoque un conflit sur les noms de conteneurs fixes de mongo/lmelp/frontend)
+      docker compose -p <nom-du-projet> up -d --force-recreate backend
+      ```
+
 ### Frontend
 
 ```bash
