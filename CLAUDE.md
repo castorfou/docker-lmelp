@@ -96,6 +96,16 @@ Cette différence de comportement a été identifiée lors du diagnostic d'un pr
 
 Cette approche prend parfois plus de temps initialement, mais économise énormément de temps à long terme et améliore la maîtrise du système.
 
+### Watchtower ne réapplique pas les changements de `docker-compose.yml`
+
+**Deuxième piège du même type** (identifié lors du diagnostic de l'issue #45 : cache Babelio qui
+reste vide malgré un volume ajouté) : Watchtower ne fait que surveiller les nouvelles images et
+recrée le conteneur avec **la configuration Docker déjà en place** (mêmes volumes, mêmes
+variables d'environnement) — il ne relit jamais `docker-compose.yml`. Après avoir ajouté un
+volume ou une variable d'environnement dans le compose file, un redéploiement explicite de la
+stack est nécessaire (Portainer : "Update the stack" ; CLI : `docker compose up -d
+--force-recreate`), sans quoi le conteneur continue de tourner avec l'ancienne configuration.
+
 ### Installation
 1. Ouvrir le projet dans VS Code
 2. Accepter la proposition d'ouvrir dans un Dev Container
