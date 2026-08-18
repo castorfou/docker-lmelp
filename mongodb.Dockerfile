@@ -59,11 +59,23 @@ RUN echo '1 5 mongodb-logrotate /etc/anacron.daily/mongodb-logrotate' >> /etc/an
 RUN echo '1 10 mongodb-backup /etc/anacron.weekly/mongodb-backup' >> /etc/anacrontab
 
 # Create a startup script that runs both MongoDB and anacron
+# The anacron loop must run as the mongodb user (not root): it spawns the
+# backup and log-rotation jobs, which write to bind-mounted host volumes
+# (/backups, /var/log/mongodb) whose ownership must stay consistent with
+# mongod's own data files (issue #48).
 RUN echo '#!/bin/bash' > /docker-entrypoint-anacron.sh && \
     echo 'set -e' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
-    echo '# Start anacron loop in the background (check every hour)' >> /docker-entrypoint-anacron.sh && \
-    echo '(while true; do anacron -d; sleep 3600; done) &' >> /docker-entrypoint-anacron.sh && \
+    echo '# Bind-mounted host volumes may not match the mongodb UID (999):' >> /docker-entrypoint-anacron.sh && \
+    echo '# chown them (recursively for content that may already exist) while' >> /docker-entrypoint-anacron.sh && \
+    echo '# still running as root, before dropping to mongodb below.' >> /docker-entrypoint-anacron.sh && \
+    echo 'mkdir -p /backups /var/log/mongodb /var/spool/anacron' >> /docker-entrypoint-anacron.sh && \
+    echo 'chown -R mongodb:mongodb /backups /var/log/mongodb' >> /docker-entrypoint-anacron.sh && \
+    echo 'chown mongodb:mongodb /var/spool/anacron' >> /docker-entrypoint-anacron.sh && \
+    echo '' >> /docker-entrypoint-anacron.sh && \
+    echo '# Start anacron loop in the background (check every hour), as mongodb' >> /docker-entrypoint-anacron.sh && \
+    echo '# so spawned jobs do not create root-owned files' >> /docker-entrypoint-anacron.sh && \
+    echo '(while true; do gosu mongodb anacron -d; sleep 3600; done) &' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
     echo '# Run the original MongoDB entrypoint' >> /docker-entrypoint-anacron.sh && \
     echo 'exec /usr/local/bin/docker-entrypoint.sh "$@"' >> /docker-entrypoint-anacron.sh && \

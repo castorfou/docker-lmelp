@@ -22,20 +22,9 @@ Le système utilise **anacron** au lieu de cron classique car il est adapté aux
 
 ## Installation initiale
 
-### Créer le répertoire de logs avec les bonnes permissions
-
-Avant le premier démarrage, créez le répertoire de logs avec les permissions correctes :
-
-```bash
-# Créer le répertoire
-mkdir -p data/logs/mongodb
-
-# Définir les bonnes permissions (UID 999 = utilisateur mongodb dans le conteneur)
-sudo chown -R 999:999 data/logs/mongodb
-
-# Alternative sans sudo (permissions ouvertes)
-chmod 777 data/logs/mongodb
-```
+Aucune préparation manuelle du répertoire de logs n'est nécessaire : le conteneur MongoDB
+chowne automatiquement `data/logs/mongodb` vers l'utilisateur `mongodb` (UID 999) à chaque
+démarrage, y compris si le répertoire appartenait auparavant à un autre utilisateur.
 
 ### Démarrer la stack
 
@@ -158,18 +147,17 @@ docker exec lmelp-mongo /scripts/rotate_mongodb_logs.sh
 
 ### Erreur de permissions
 
-Si vous obtenez des erreurs de permissions, vérifiez les permissions du répertoire :
+Le conteneur chowne automatiquement `data/logs/mongodb` vers l'UID 999 (utilisateur `mongodb`)
+à chaque démarrage, donc ce type d'erreur ne devrait normalement pas se produire. Pour
+vérifier :
 
 ```bash
 ls -la data/logs/mongodb/
 ```
 
-Le répertoire doit appartenir à l'UID 999 (utilisateur mongodb).
-
-Correction :
-```bash
-sudo chown -R 999:999 data/logs/mongodb
-```
+Si des fichiers appartiennent encore à un autre utilisateur après un redémarrage du conteneur,
+consultez les logs de démarrage (`docker compose logs mongo`) pour identifier pourquoi le
+chown automatique a échoué (par exemple un système de fichiers hôte en lecture seule).
 
 ### Le conteneur ne démarre pas
 

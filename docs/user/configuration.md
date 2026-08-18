@@ -273,11 +273,11 @@ BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
 ```bash
 mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/mongodb,cache/babelio}
 chmod -R 755 /mnt/storage/lmelp
-
-# MongoDB a besoin que le répertoire de logs ait les bonnes permissions
-sudo chown -R 999:999 /mnt/storage/lmelp/logs/mongodb
-# Alternative sans sudo : chmod 777 /mnt/storage/lmelp/logs/mongodb
 ```
+
+Le conteneur MongoDB chowne automatiquement `logs/mongodb` et `backups` vers l'utilisateur
+`mongodb` (UID 999) à chaque démarrage — aucune commande `chown` manuelle n'est nécessaire pour
+ces deux répertoires.
 
 ## Configuration des backups
 

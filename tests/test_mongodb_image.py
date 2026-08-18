@@ -6,6 +6,7 @@ with both log rotation and backup using anacron.
 """
 
 import subprocess
+import time
 
 import pytest
 
@@ -36,6 +37,34 @@ class TestMongoDBImageBuild:
             timeout=300,
         )
         assert result.returncode == 0, f"Image build failed: {result.stderr}"
+
+
+class TestMongoDBEntrypointOwnership:
+    """Tests for issue #48: anacron-spawned jobs must run as `mongodb`, not
+    root, so backup/log-rotation files created on bind-mounted host volumes
+    are not owned by root."""
+
+    def test_entrypoint_runs_anacron_loop_as_mongodb_user(self):
+        """The anacron loop in the custom entrypoint must invoke anacron via
+        `gosu mongodb`, not as root, otherwise every job it spawns
+        (backup_mongodb.sh, rotate_mongodb_logs.sh) writes root-owned files
+        on bind-mounted volumes such as /backups and /var/log/mongodb."""
+        with open("mongodb.Dockerfile") as f:
+            content = f.read()
+
+        anacron_loop_lines = [
+            line
+            for line in content.splitlines()
+            if "while true" in line and "anacron -d" in line
+        ]
+        assert anacron_loop_lines, (
+            "Could not find the anacron background loop line in mongodb.Dockerfile"
+        )
+        assert "gosu mongodb anacron -d" in anacron_loop_lines[0], (
+            "The anacron loop must run 'gosu mongodb anacron -d' instead of "
+            "'anacron -d' as root, otherwise backup/log-rotation jobs it "
+            "spawns create root-owned files on bind-mounted volumes"
+        )
 
 
 class TestMongoDBImageContent:
@@ -199,3 +228,80 @@ class TestMongoDBImageContent:
             capture_output=True,
         )
         assert result.returncode == 0, "Backup anacron script should be executable"
+
+    def test_entrypoint_chowns_backups_and_logs_to_mongodb(self, tmp_path):
+        """Verify that, at container startup, the entrypoint chowns /backups
+        and /var/log/mongodb to the mongodb user (UID 999) — recursively, so
+        that files already present before startup (owned by some unrelated
+        host UID, as observed in production) are also fixed, not just new
+        ones created afterwards."""
+        backups_dir = tmp_path / "backups"
+        stale_backup = backups_dir / "backup_2026-01-01_00-00-00"
+        stale_backup.mkdir(parents=True)
+        stale_file = stale_backup / "dummy.bson"
+        stale_file.write_text("dummy")
+        # Owned by whatever UID runs this test (not 999/mongodb), simulating
+        # the real-world case of pre-existing files owned by an unrelated
+        # host user.
+
+        container_name = "lmelp-mongo-test-ownership"
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        try:
+            run_result = subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-v",
+                    f"{backups_dir}:/backups",
+                    "lmelp-mongo:test",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (
+                f"Failed to start container: {run_result.stderr}"
+            )
+
+            owner_backups = None
+            owner_stale_file = None
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                stat_backups = subprocess.run(
+                    ["docker", "exec", container_name, "stat", "-c", "%u", "/backups"],
+                    capture_output=True,
+                    text=True,
+                )
+                stat_file = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        container_name,
+                        "stat",
+                        "-c",
+                        "%u",
+                        "/backups/backup_2026-01-01_00-00-00/dummy.bson",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                if stat_backups.returncode == 0 and stat_file.returncode == 0:
+                    owner_backups = stat_backups.stdout.strip()
+                    owner_stale_file = stat_file.stdout.strip()
+                    if owner_backups == "999" and owner_stale_file == "999":
+                        break
+                time.sleep(1)
+
+            assert owner_backups == "999", (
+                "/backups should be owned by mongodb (UID 999) after entrypoint "
+                f"startup, got UID {owner_backups!r}"
+            )
+            assert owner_stale_file == "999", (
+                "Pre-existing files under /backups should be chowned to "
+                f"mongodb (UID 999) on startup too, got UID {owner_stale_file!r}"
+            )
+        finally:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
