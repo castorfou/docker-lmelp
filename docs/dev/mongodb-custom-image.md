@@ -86,6 +86,25 @@ RUN chmod +x /scripts/rotate_mongodb_logs.sh
 - **Testabilité** : Facile à tester manuellement
 - **Flexibilité** : Peut être appelé manuellement ou via anacron
 
+**Auto-défense contre une invocation en root** : `backup_mongodb.sh` et `rotate_mongodb_logs.sh`
+détectent s'ils tournent en root (`id -u` = 0) et se relancent eux-mêmes via `gosu mongodb "$0"
+"$@"` avant toute autre action :
+
+```bash
+if [ "$(id -u)" = "0" ]; then
+    exec gosu mongodb "$0" "$@"
+fi
+```
+
+**Pourquoi** : l'image ne définit pas de `USER` non-root (l'image officielle Mongo ne le fait
+pas non plus, précisément pour permettre à son propre entrypoint de faire du setup en root avant
+de dropper les privilèges). Un `docker exec lmelp-mongo /scripts/backup_mongodb.sh` manuel
+tourne donc par défaut en root, pas en `mongodb` — sans cette garde, les fichiers créés sur les
+volumes bind-mountés (`/backups`, `/var/log/mongodb`) redeviendraient root-owned, peu importe que
+le chemin anacron (voir section 7) soit correctement fixé. Cette garde protège n'importe quelle
+invocation manuelle (`docker exec` avec ou sans `--user`, shell interactif, etc.), pas seulement
+le déclenchement automatique par anacron.
+
 ### 6. Job anacron créé dynamiquement
 
 ```dockerfile
@@ -361,15 +380,21 @@ docker exec lmelp-mongo ps aux | grep anacron
 
 ### Vérifier l'ownership des fichiers de backup/logs
 
+Les fichiers créés dans `data/backups` et `data/logs/mongodb` doivent appartenir à l'utilisateur
+`mongodb` (UID 999) — **pas** à l'utilisateur qui lance la commande. Vérifier spécifiquement
+l'absence de fichiers root (UID 0), pas simplement "différent de moi" :
+
 ```bash
-find data/backups data/logs/mongodb ! -user "$(id -un)"
+find data/backups data/logs/mongodb -uid 0
 ```
 
-Ne devrait rien remonter (hormis les fichiers internes de mongod lui-même dans `data/mongodb`,
-qui appartiennent à l'utilisateur `mongodb` par conception — voir section "Considérations de
-sécurité"). Si des fichiers `root:root` apparaissent dans `data/backups` ou
-`data/logs/mongodb`, vérifier que l'entrypoint a bien pu chowner ces volumes au démarrage
-(`docker compose logs mongo` en début de démarrage).
+Ne devrait rien remonter. Si des fichiers `root:root` apparaissent :
+- Pour un fichier créé automatiquement (via anacron) : vérifier que l'entrypoint a bien pu
+  chowner ces volumes au démarrage (`docker compose logs mongo` en début de démarrage).
+- Pour un fichier créé via une invocation manuelle des scripts (`docker exec ... /scripts/backup_mongodb.sh`,
+  par exemple) : vérifier que la garde de re-exec en root est bien présente en tête du script
+  (voir section 5, "Auto-défense contre une invocation en root") et que `gosu` est disponible
+  dans l'image.
 
 ### Logs d'anacron
 

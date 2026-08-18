@@ -67,6 +67,40 @@ class TestMongoDBEntrypointOwnership:
         )
 
 
+class TestMongoDBScriptSelfDefense:
+    """Tests that backup_mongodb.sh and rotate_mongodb_logs.sh always run as
+    the mongodb user, even when invoked directly as root (e.g. a manual
+    `docker exec` without --user) — not just when triggered via anacron."""
+
+    @pytest.mark.parametrize(
+        "script_path",
+        ["scripts/backup_mongodb.sh", "scripts/rotate_mongodb_logs.sh"],
+    )
+    def test_script_re_execs_as_mongodb_when_run_as_root(self, script_path):
+        """Each script must detect a root UID and re-exec itself via
+        `gosu mongodb`, before doing anything else, so files it creates on
+        bind-mounted volumes are never owned by root regardless of how the
+        script was invoked."""
+        with open(script_path) as f:
+            content = f.read()
+
+        assert "id -u" in content and 'gosu mongodb "$0"' in content, (
+            f'{script_path} must re-exec itself via \'gosu mongodb "$0" "$@"\' '
+            "when running as root (uid 0), so manual invocations (e.g. "
+            "`docker exec` without --user) don't create root-owned files"
+        )
+
+        # The guard must appear before the script does any real work
+        # (before the MONGO_HOST configuration block), not buried after
+        # other logic has already run as root.
+        guard_index = content.index('gosu mongodb "$0"')
+        config_index = content.index("MONGO_HOST=")
+        assert guard_index < config_index, (
+            f"{script_path}: the root re-exec guard should run near the top "
+            "of the script, before any other logic executes as root"
+        )
+
+
 class TestMongoDBImageContent:
     """Tests for MongoDB image content and configuration."""
 
@@ -302,6 +336,119 @@ class TestMongoDBImageContent:
             assert owner_stale_file == "999", (
                 "Pre-existing files under /backups should be chowned to "
                 f"mongodb (UID 999) on startup too, got UID {owner_stale_file!r}"
+            )
+        finally:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+
+    def test_backup_script_creates_mongodb_owned_files_when_run_as_root(self, tmp_path):
+        """A manual `docker exec` invocation of backup_mongodb.sh as root
+        (the container's default exec user, since no USER is set in the
+        image) must still produce files owned by mongodb (UID 999), not
+        root — the script re-execs itself via gosu when it detects it is
+        running as root."""
+        backups_dir = tmp_path / "backups"
+        backups_dir.mkdir()
+
+        container_name = "lmelp-mongo-test-script-selfdefense"
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        try:
+            run_result = subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-v",
+                    f"{backups_dir}:/backups",
+                    "lmelp-mongo:test",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (
+                f"Failed to start container: {run_result.stderr}"
+            )
+
+            # Wait for mongod to accept connections before triggering a backup
+            deadline = time.monotonic() + 30
+            mongod_ready = False
+            while time.monotonic() < deadline:
+                ping = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        container_name,
+                        "mongosh",
+                        "--quiet",
+                        "--eval",
+                        "db.adminCommand('ping')",
+                    ],
+                    capture_output=True,
+                )
+                if ping.returncode == 0:
+                    mongod_ready = True
+                    break
+                time.sleep(1)
+            assert mongod_ready, "mongod did not become ready in time"
+
+            # Seed a document so mongodump has something to dump — an empty
+            # database produces no output directory at all, which would
+            # make the ownership check below meaningless.
+            seed = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "mongosh",
+                    "--quiet",
+                    "masque_et_la_plume",
+                    "--eval",
+                    "db.testcol.insertOne({x: 1})",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert seed.returncode == 0, f"Failed to seed test data: {seed.stderr}"
+
+            # Explicitly run as root (default docker exec user for this
+            # image) to reproduce the manual-invocation scenario.
+            backup_result = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    "--user",
+                    "root",
+                    "-e",
+                    "FORCE_BACKUP=1",
+                    container_name,
+                    "/scripts/backup_mongodb.sh",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert backup_result.returncode == 0, (
+                f"backup_mongodb.sh failed: {backup_result.stderr}"
+            )
+
+            owner = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "bash",
+                    "-c",
+                    "stat -c '%u' /backups/backup_*/",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert owner.returncode == 0, f"stat failed: {owner.stderr}"
+            assert owner.stdout.strip() == "999", (
+                "Backup files created via a root docker exec should still "
+                f"be owned by mongodb (UID 999), got UID {owner.stdout.strip()!r}"
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
