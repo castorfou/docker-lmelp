@@ -72,11 +72,7 @@ RUN mkdir -p /var/log/mongodb && \
 - **Accès depuis l'hôte** : Facile à consulter sans `docker exec`
 - **Permissions** : Le répertoire est créé avec les bonnes permissions dans l'image
 
-**Contrainte** : L'utilisateur doit créer le répertoire sur l'hôte avec les bonnes permissions :
-```bash
-mkdir -p data/logs/mongodb
-sudo chown -R 999:999 data/logs/mongodb
-```
+**Permissions** : L'entrypoint custom (voir section 7) chowne automatiquement ce répertoire vers `mongodb:mongodb` à chaque démarrage du conteneur, y compris récursivement pour le contenu déjà présent — aucune action manuelle n'est nécessaire côté hôte, quelle que soit l'ownership initiale du bind-mount.
 
 ### 5. Script de rotation embarqué
 
@@ -109,8 +105,12 @@ RUN echo '#!/bin/bash' > /etc/anacron.daily/mongodb-logrotate && \
 RUN echo '#!/bin/bash' > /docker-entrypoint-anacron.sh && \
     echo 'set -e' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
-    echo '# Start anacron in the background' >> /docker-entrypoint-anacron.sh && \
-    echo 'anacron -d &' >> /docker-entrypoint-anacron.sh && \
+    echo 'mkdir -p /backups /var/log/mongodb /var/spool/anacron' >> /docker-entrypoint-anacron.sh && \
+    echo 'chown -R mongodb:mongodb /backups /var/log/mongodb' >> /docker-entrypoint-anacron.sh && \
+    echo 'chown mongodb:mongodb /var/spool/anacron' >> /docker-entrypoint-anacron.sh && \
+    echo '' >> /docker-entrypoint-anacron.sh && \
+    echo '# Start anacron in the background, as the mongodb user' >> /docker-entrypoint-anacron.sh && \
+    echo '(while true; do gosu mongodb anacron -d; sleep 3600; done) &' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
     echo '# Run the original MongoDB entrypoint' >> /docker-entrypoint-anacron.sh && \
     echo 'exec /usr/local/bin/docker-entrypoint.sh "$@"' >> /docker-entrypoint-anacron.sh && \
@@ -122,7 +122,9 @@ CMD ["mongod"]
 
 **Raisons** :
 - **Deux processus** : MongoDB et anacron doivent tourner simultanément
-- **Anacron en background** : Lance anacron avec `-d` (daemon mode) en arrière-plan
+- **Chown avant drop de privilège** : `/backups` et `/var/log/mongodb` sont des bind-mounts dont l'ownership dépend de l'hôte, pas de l'image — l'entrypoint les chowne (récursivement, pour corriger aussi le contenu déjà présent) vers `mongodb:mongodb` pendant qu'il tourne encore en root, avant de lancer quoi que ce soit en tant que `mongodb`
+- **Anacron en tant que `mongodb`, pas root** : `gosu mongodb anacron -d` plutôt qu'`anacron -d` — sinon les jobs déclenchés (backup, rotation de logs) créent des fichiers appartenant à root sur les volumes montés, incohérent avec le reste des fichiers gérés par mongod (UID 999)
+- **`/var/spool/anacron` chowné aussi** : anacron y stocke ses timestamps de dernière exécution ; sans ce chown, l'invocation en tant que `mongodb` ne pourrait pas les mettre à jour
 - **Chaîne avec exec** : L'entrypoint MongoDB original prend le contrôle (PID 1)
 - **Signal handling** : MongoDB reçoit correctement les signaux (SIGTERM, etc.)
 
@@ -199,17 +201,15 @@ Le paramètre `logRotate: reopen` dans `mongod.conf` indique à MongoDB d'utilis
 MongoDB tourne avec l'utilisateur `mongodb` (UID 999, GID 999) et non en root :
 - **Sécurité** : Principe du moindre privilège
 - **Permissions** : Tous les fichiers doivent appartenir à cet utilisateur
-- **Volume mounts** : L'hôte doit configurer les permissions correctement
+- **Anacron aussi** : les jobs de backup et de rotation de logs, déclenchés par anacron, tournent également sous `mongodb` (via `gosu`) et non root — voir section 7
 
 ### Permissions des volumes
 
-Le volume `/var/log/mongodb` doit appartenir à l'UID 999 sur l'hôte :
-
-```bash
-sudo chown -R 999:999 data/logs/mongodb
-```
-
-**Pourquoi** : Docker monte les volumes avec les permissions de l'hôte. Si le répertoire appartient à root, MongoDB ne peut pas écrire dedans.
+Les volumes `/backups` et `/var/log/mongodb` sont des bind-mounts : leur ownership dépend de
+l'hôte, pas de l'image. L'entrypoint custom (section 7) les chowne automatiquement vers
+`mongodb:mongodb` à chaque démarrage du conteneur, y compris récursivement pour le contenu déjà
+présent — aucune action manuelle n'est nécessaire côté hôte, quelle que soit l'ownership initiale
+du bind-mount.
 
 ## Performance
 
@@ -358,6 +358,18 @@ Exporter des métriques Prometheus sur la rotation :
 ```bash
 docker exec lmelp-mongo ps aux | grep anacron
 ```
+
+### Vérifier l'ownership des fichiers de backup/logs
+
+```bash
+find data/backups data/logs/mongodb ! -user "$(id -un)"
+```
+
+Ne devrait rien remonter (hormis les fichiers internes de mongod lui-même dans `data/mongodb`,
+qui appartiennent à l'utilisateur `mongodb` par conception — voir section "Considérations de
+sécurité"). Si des fichiers `root:root` apparaissent dans `data/backups` ou
+`data/logs/mongodb`, vérifier que l'entrypoint a bien pu chowner ces volumes au démarrage
+(`docker compose logs mongo` en début de démarrage).
 
 ### Logs d'anacron
 
