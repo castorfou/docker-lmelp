@@ -17,6 +17,13 @@
 
 set -e  # Exit on error
 
+# Ensure this script always runs as the mongodb user, even when invoked
+# directly as root (e.g. `docker exec` without --user): files written to
+# bind-mounted host volumes must stay owned by mongodb, not root.
+if [ "$(id -u)" = "0" ]; then
+    exec gosu mongodb "$0" "$@"
+fi
+
 # Configuration from environment variables with defaults
 MONGO_HOST="${MONGO_HOST:-localhost}"
 MONGO_PORT="${MONGO_PORT:-27017}"

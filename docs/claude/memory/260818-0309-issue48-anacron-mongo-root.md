@@ -94,16 +94,40 @@ le fichier de test n'était ensuite plus supprimable sans `sudo` par l'utilisate
 denied`) — preuve supplémentaire, quoique surprenante sur le moment, que le chown avait bien eu
 lieu.
 
-## Vérification finale en conditions réelles (à faire après merge + republication de l'image)
+## Vérification en conditions réelles — et une erreur de méthodologie corrigée
+
+**Piège rencontré** : la commande de vérification initialement recommandée,
+`find data/backups data/logs/mongodb ! -user guillaume`, est **fausse** — elle détecte tout ce
+qui n'appartient pas à `guillaume`, ce qui inclut aussi bien un vrai bug (root) que le résultat
+**correct et attendu** du fix (`mongodb`, UID 999, qui n'est jamais censé devenir
+`guillaume`-owned — exactement comme `data/mongodb` qui a toujours été légitimement UID 999).
+Cette commande a fait croire à un échec du fix alors qu'il fonctionnait. La bonne vérification
+cible spécifiquement root :
 
 ```bash
-find data/backups data/logs/mongodb ! -user guillaume
+find data/backups data/logs/mongodb -uid 0
 ```
 
-Ne devrait plus rien remonter après redéploiement de la stack avec la nouvelle image (grâce au
-`chown -R`, y compris pour l'historique déjà présent, pas seulement les nouveaux fichiers). Pour
-ne pas attendre le prochain backup hebdomadaire (anacron), on peut en forcer un manuellement :
-`docker exec lmelp-mongo bash -c "FORCE_BACKUP=1 /scripts/backup_mongodb.sh"`.
+**Deuxième découverte en testant en conditions réelles** : `docker exec lmelp-mongo
+/scripts/backup_mongodb.sh` (sans `--user mongodb`) recrée le bug. `docker exec` utilise par
+défaut l'utilisateur de l'image (root, puisqu'aucun `USER` non-root n'est défini — comme
+l'image officielle Mongo elle-même, précisément pour permettre à l'entrypoint de faire du setup
+en root avant de dropper les privilèges). Le fix de ce ticket ne corrigeait que le chemin
+**anacron** (`gosu mongodb anacron -d` dans l'entrypoint) ; toute invocation manuelle des
+scripts contournait cette protection et recréait des fichiers root-owned — y compris via les
+procédures documentées dans `docs/user/backup-restore.md` et `docs/user/mongodb-log-rotation.md`
+("Forcer un backup manuel", "Rotation manuelle"), toutes basées sur `docker exec` sans `--user`.
+
+**Fix de suivi** (branche `fix/mongo-scripts-self-drop-privileges`, hors du scope initial de ce
+ticket) : `scripts/backup_mongodb.sh` et `scripts/rotate_mongodb_logs.sh` détectent maintenant
+eux-mêmes s'ils tournent en root et se relancent via `gosu mongodb "$0" "$@"` avant toute autre
+action — protège toute invocation manuelle, avec ou sans `--user`, peu importe qui l'appelle.
+
+**Validation réelle sur le laptop de l'utilisateur**, avant ce fix de suivi : trois backups
+créés dans la même session, timestamps proches, montrant les trois cas de figure attendus —
+`01-54-22`/`01-57-29` (déclenchés automatiquement par anacron après redémarrage du conteneur,
+UID 999 ✓ le vrai fix validé), `02-06-56` (`docker exec` manuel sans `--user`, UID 0 — confirme
+le trou), `02-08-44` (`docker exec --user mongodb` manuel, UID 999 — confirme le contournement).
 
 ## Liens
 
