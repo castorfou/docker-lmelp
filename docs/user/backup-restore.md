@@ -299,8 +299,6 @@ docker exec -it lmelp-mongo-backup \
 
 ### Copie automatique vers NAS
 
-Ajouter un script dans `cron/` pour copier les backups vers un NAS :
-
 Créer `scripts/sync_backups_to_nas.sh` :
 
 ```bash
@@ -321,12 +319,16 @@ rsync -avz --delete "${BACKUP_PATH}/" "${NAS_PATH}/"
 echo "Backups synchronized to NAS at $(date)"
 ```
 
-Ajouter dans `cron/backup-cron` :
+Planifier ce script via la crontab système de l'hôte (`crontab -e`) :
 
 ```cron
 # Backup MongoDB puis copie sur NAS
 0 2 * * 0 /scripts/backup_mongodb.sh && /scripts/sync_backups_to_nas.sh >> /var/log/backup-sync.log 2>&1
 ```
+
+**Note** : ce scénario concerne la copie des backups vers un **second** NAS/stockage
+externe. Si la stack tourne déjà sur un NAS Synology, voir plutôt
+[Migration vers un NAS Synology](migration-nas.md).
 
 ### Sauvegarde vers cloud (S3, GCS, etc.)
 

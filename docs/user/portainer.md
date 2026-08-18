@@ -201,6 +201,11 @@ Intégrer avec des outils externes :
 
 ## Déploiement sur NAS Synology
 
+> **Vous migrez une stack existante depuis un laptop ?** Suivez plutôt le guide dédié
+> [Migration vers un NAS Synology](migration-nas.md), qui couvre la migration des
+> données (MongoDB, audios, backups, cache) en plus du déploiement lui-même. La section
+> ci-dessous décrit un déploiement neuf (sans données à migrer).
+
 ### Prérequis Synology
 
 1. Installer **Container Manager** depuis Package Center
@@ -216,31 +221,27 @@ Intégrer avec des outils externes :
 ssh admin@nas-ip
 
 # Créer la structure
-sudo mkdir -p /volume1/docker/lmelp/{mongodb,backups,audios,logs,scripts,cron}
+sudo mkdir -p /volume1/docker/lmelp/data/{mongodb,backups,audios,logs/mongodb,cache/babelio}
+sudo chown -R 1000:1000 /volume1/docker/lmelp/data
 ```
 
-2. Copier les fichiers :
+2. Déployer via Portainer (Container Manager → Portainer)
+
+3. Adapter `.env` pour Synology avec des **chemins absolus** (voir le piège
+   Portainer expliqué dans la note ci-dessus) :
 
 ```bash
-# Depuis votre machine locale
-scp -r scripts/* admin@nas-ip:/volume1/docker/lmelp/scripts/
-scp cron/backup-cron admin@nas-ip:/volume1/docker/lmelp/cron/
+MONGO_DATA_PATH=/volume1/docker/lmelp/data/mongodb
+BACKUP_PATH=/volume1/docker/lmelp/data/backups
+AUDIO_PATH=/volume1/docker/lmelp/data/audios
+LOG_PATH=/volume1/docker/lmelp/data/logs
+MONGO_LOG_PATH=/volume1/docker/lmelp/data/logs/mongodb
+BABELIO_CACHE_PATH=/volume1/docker/lmelp/data/cache/babelio
 ```
 
-3. Déployer via Portainer (Container Manager → Portainer)
-
-4. Adapter `.env` pour Synology :
-
-```bash
-# Chemins absolus pour Synology
-MONGO_DATA_PATH=/volume1/docker/lmelp/mongodb
-BACKUP_PATH=/volume1/docker/lmelp/backups
-AUDIO_PATH=/volume1/docker/lmelp/audios
-LOG_PATH=/volume1/docker/lmelp/logs
-
-# Réseau en mode host
-DB_HOST=localhost
-```
+La communication entre services se fait via le réseau bridge Docker
+(`lmelp-network`) et les noms de service (ex. `mongo`) — aucune variable réseau
+supplémentaire n'est nécessaire, ni de mode host.
 
 ## Dépannage
 

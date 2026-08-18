@@ -43,6 +43,10 @@ services:
       - ${BACKUP_PATH:-./data/backups}:/app/db-backup
       - ${LOG_PATH:-./data/logs}:/app/logs
     environment:
+      # Utilisateur non-root (fichiers audios/db/logs créés avec cet UID/GID sur l'hôte)
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
       # Database Configuration
       - DB_HOST=mongo
       - DB_NAME=${DB_NAME:-masque_et_la_plume}
@@ -87,6 +91,10 @@ services:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
       - ${BABELIO_CACHE_PATH:-./data/cache/babelio}:/cache/babelio
     environment:
+      # Utilisateur non-root (fichiers de cache Babelio créés avec cet UID/GID sur l'hôte)
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+
       - MONGODB_URL=mongodb://mongo:27017/${MONGO_DATABASE:-masque_et_la_plume}
       - ENVIRONMENT=production
       - API_HOST=0.0.0.0
