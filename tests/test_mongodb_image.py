@@ -393,6 +393,25 @@ class TestMongoDBImageContent:
                 time.sleep(1)
             assert mongod_ready, "mongod did not become ready in time"
 
+            # Seed a document so mongodump has something to dump — an empty
+            # database produces no output directory at all, which would
+            # make the ownership check below meaningless.
+            seed = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "mongosh",
+                    "--quiet",
+                    "masque_et_la_plume",
+                    "--eval",
+                    "db.testcol.insertOne({x: 1})",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert seed.returncode == 0, f"Failed to seed test data: {seed.stderr}"
+
             # Explicitly run as root (default docker exec user for this
             # image) to reproduce the manual-invocation scenario.
             backup_result = subprocess.run(
