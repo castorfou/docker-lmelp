@@ -78,6 +78,7 @@ La documentation complète est disponible sur **[castorfou.github.io/docker-lmel
 - **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
 - **[Rotation des logs MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-log-rotation/)** : Gestion automatique des logs
 - **[Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)** : Installation via interface graphique
+- **[Migration vers un NAS Synology](https://castorfou.github.io/docker-lmelp/user/migration-nas/)** : Migrer une stack existante depuis un laptop
 
 ## 🔧 Configuration minimale
 
@@ -116,6 +117,7 @@ MONGO_LOG_PATH=./data/logs/mongodb
 docker-lmelp/
 ├── docker-compose.yml      # Configuration Docker Compose
 ├── .env.example            # Template de configuration
+├── .env.nas.example        # Template de configuration pour déploiement NAS Synology
 ├── mongodb.Dockerfile      # Image MongoDB custom avec anacron
 ├── config/                 # Configuration MongoDB
 │   └── mongod.conf         # Configuration avec rotation logs
@@ -124,9 +126,6 @@ docker-lmelp/
 │   ├── restore_mongodb.sh  # Restauration depuis backup
 │   ├── rotate_mongodb_logs.sh # Rotation manuelle des logs
 │   └── init_mongo.sh       # Initialisation base de données
-├── cron/                   # Configuration cron/anacron
-│   ├── backup-cron         # Planification backups hebdomadaires
-│   └── mongodb-logrotate.anacron # Rotation logs (optionnel host)
 ├── data/                   # Données persistantes (non versionnées)
 │   ├── mongodb/            # Données MongoDB
 │   ├── backups/            # Backups MongoDB
@@ -137,7 +136,8 @@ docker-lmelp/
         ├── installation.md
         ├── configuration.md
         ├── backup-restore.md
-        └── portainer.md
+        ├── portainer.md
+        └── migration-nas.md
 ```
 
 ## 🔄 Gestion des backups
