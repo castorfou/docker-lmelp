@@ -194,7 +194,7 @@ CMD ["mongod"]
                  │
                  │ (volume mount)
                  ▼
-        data/logs/mongodb/
+        data/mongodb-logs/
         (sur l'hôte)
 ```
 
@@ -380,12 +380,12 @@ docker exec lmelp-mongo ps aux | grep anacron
 
 ### Vérifier l'ownership des fichiers de backup/logs
 
-Les fichiers créés dans `data/backups` et `data/logs/mongodb` doivent appartenir à l'utilisateur
+Les fichiers créés dans `data/backups` et `data/mongodb-logs` doivent appartenir à l'utilisateur
 `mongodb` (UID 999) — **pas** à l'utilisateur qui lance la commande. Vérifier spécifiquement
 l'absence de fichiers root (UID 0), pas simplement "différent de moi" :
 
 ```bash
-find data/backups data/logs/mongodb -uid 0
+find data/backups data/mongodb-logs -uid 0
 ```
 
 Ne devrait rien remonter. Si des fichiers `root:root` apparaissent :

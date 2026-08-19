@@ -11,7 +11,7 @@ La rotation des logs MongoDB s'effectue automatiquement via **anacron** :
 - **Fréquence** : Quotidienne (5 minutes après le démarrage du conteneur, puis tous les jours)
 - **Compression** : Les logs rotés sont compressés automatiquement avec gzip
 - **Rétention** : 30 jours
-- **Emplacement** : `./data/logs/mongodb/`
+- **Emplacement** : `./data/mongodb-logs/`
 
 ### Anacron vs Cron
 
@@ -23,7 +23,7 @@ Le système utilise **anacron** au lieu de cron classique car il est adapté aux
 ## Installation initiale
 
 Aucune préparation manuelle du répertoire de logs n'est nécessaire : le conteneur MongoDB
-chowne automatiquement `data/logs/mongodb` vers l'utilisateur `mongodb` (UID 999) à chaque
+chowne automatiquement `data/mongodb-logs` vers l'utilisateur `mongodb` (UID 999) à chaque
 démarrage, y compris si le répertoire appartenait auparavant à un autre utilisateur.
 
 ### Démarrer la stack
@@ -62,7 +62,7 @@ Vous devriez voir un processus anacron actif.
 ### Lister les fichiers de logs
 
 ```bash
-ls -lh data/logs/mongodb/
+ls -lh data/mongodb-logs/
 ```
 
 Vous verrez :
@@ -84,10 +84,10 @@ docker exec lmelp-mongo cat /var/log/mongodb/logrotate.log
 
 ```bash
 # Total pour tous les logs MongoDB
-du -sh data/logs/mongodb/
+du -sh data/mongodb-logs/
 
 # Détail par fichier
-du -h data/logs/mongodb/* | sort -h
+du -h data/mongodb-logs/* | sort -h
 ```
 
 ### Libérer de l'espace
@@ -99,7 +99,7 @@ Si vous manquez d'espace disque, vous pouvez :
 
 ```bash
 # Supprimer les logs de plus de 7 jours
-find data/logs/mongodb/ -name "mongod.log.*" -mtime +7 -delete
+find data/mongodb-logs/ -name "mongod.log.*" -mtime +7 -delete
 ```
 
 ## Personnalisation
@@ -147,12 +147,12 @@ docker exec lmelp-mongo /scripts/rotate_mongodb_logs.sh
 
 ### Erreur de permissions
 
-Le conteneur chowne automatiquement `data/logs/mongodb` vers l'UID 999 (utilisateur `mongodb`)
+Le conteneur chowne automatiquement `data/mongodb-logs` vers l'UID 999 (utilisateur `mongodb`)
 à chaque démarrage, donc ce type d'erreur ne devrait normalement pas se produire. Pour
 vérifier :
 
 ```bash
-ls -la data/logs/mongodb/
+ls -la data/mongodb-logs/
 ```
 
 Si des fichiers appartiennent encore à un autre utilisateur après un redémarrage du conteneur,

@@ -49,9 +49,7 @@ Ouvrir Portainer dans votre navigateur :
 **Git Repository** :
 
 ```
-Authentication: Coche
-Username: castorfou
-Personal Access Token: <voir dans enpass: github personal access tokens>
+Authentication: Ne Pas cocher
 Repository URL: https://github.com/castorfou/docker-lmelp
 Repository reference: refs/heads/main
 Compose path: docker-compose.yml
@@ -60,14 +58,12 @@ Compose path: docker-compose.yml
 **GitOps updates** : Cocher pour detecter les mises a jour de `docker-compose.yml`
 
 
-
 **Environment Variables** : Cliquer sur Load variables from .env file et Selectionner le fichier `.env`
 
 ### Étape 3 : Déployer
 
 1. Vérifier la configuration
-2. Cocher **Pull latest image versions** (recommandé)
-3. Cliquer sur **Deploy the stack**
+2. Cliquer sur **Deploy the stack**
 
 Portainer va :
 
@@ -83,6 +79,11 @@ Aller dans **Stacks** → **lmelp-stack** pour voir :
 - Liste des services (`lmelp-mongo`, `lmelp-frontoffice`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`)
 - État de chaque container (vert = healthy)
 - Logs en temps réel
+
+En naviguant sur chaque container :
+
+- lmelp : http://localhost:8501/
+- backoffice-lmelp : http://localhost:8080/
 
 
 ## Gestion de la stack dans Portainer
@@ -221,8 +222,8 @@ Intégrer avec des outils externes :
 ssh admin@nas-ip
 
 # Créer la structure
-sudo mkdir -p /volume1/docker/lmelp/data/{mongodb,backups,audios,logs/mongodb,cache/babelio}
-sudo chown -R 1000:1000 /volume1/docker/lmelp/data
+sudo mkdir -p /volume1/docker/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio}
+sudo chown -R 1000:1000 /volume1/docker/lmelp
 ```
 
 2. Déployer via Portainer (Container Manager → Portainer)
@@ -231,13 +232,18 @@ sudo chown -R 1000:1000 /volume1/docker/lmelp/data
    Portainer expliqué dans la note ci-dessus) :
 
 ```bash
-MONGO_DATA_PATH=/volume1/docker/lmelp/data/mongodb
-BACKUP_PATH=/volume1/docker/lmelp/data/backups
-AUDIO_PATH=/volume1/docker/lmelp/data/audios
-LOG_PATH=/volume1/docker/lmelp/data/logs
-MONGO_LOG_PATH=/volume1/docker/lmelp/data/logs/mongodb
-BABELIO_CACHE_PATH=/volume1/docker/lmelp/data/cache/babelio
+MONGO_DATA_PATH=/volume1/docker/lmelp/mongodb
+BACKUP_PATH=/volume1/docker/lmelp/backups
+AUDIO_PATH=/volume1/docker/lmelp/audios
+LOG_PATH=/volume1/docker/lmelp/logs
+MONGO_LOG_PATH=/volume1/docker/lmelp/mongodb-logs
+BABELIO_CACHE_PATH=/volume1/docker/lmelp/cache/babelio
 ```
+
+⚠️ `MONGO_LOG_PATH` ne doit **pas** être un sous-dossier de `LOG_PATH` : le conteneur
+`lmelp` chowne récursivement son propre volume `LOG_PATH` au démarrage (utilisateur
+non-root configurable), ce qui écraserait l'ownership `mongodb` des logs Mongo s'ils
+étaient imbriqués dedans.
 
 La communication entre services se fait via le réseau bridge Docker
 (`lmelp-network`) et les noms de service (ex. `mongo`) — aucune variable réseau

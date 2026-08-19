@@ -33,9 +33,9 @@ git clone https://github.com/castorfou/docker-lmelp.git
 cd docker-lmelp
 
 # 2. Créer le répertoire de logs MongoDB avec les bonnes permissions
-mkdir -p data/logs/mongodb
-sudo chown -R 999:999 data/logs/mongodb
-# Alternative sans sudo : chmod 777 data/logs/mongodb
+mkdir -p data/mongodb-logs
+sudo chown -R 999:999 data/mongodb-logs
+# Alternative sans sudo : chmod 777 data/mongodb-logs
 
 # 3. Configurer les variables d'environnement
 cp .env.example .env
@@ -104,7 +104,7 @@ MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
 LOG_PATH=./data/logs
-MONGO_LOG_PATH=./data/logs/mongodb
+MONGO_LOG_PATH=./data/mongodb-logs
 ```
 
 **Notes importantes** :
