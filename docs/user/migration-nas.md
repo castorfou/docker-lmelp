@@ -29,8 +29,14 @@ en tant qu'utilisateur simple (pour moi guillaume uid 1027)
 créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
 
 - `/docker/lmelp`
-- `/docker/{mongodb,backups,audios,logs/mongodb,cache/babelio}`
+- `/docker/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio}`
 ```
+
+!!! warning "`mongodb-logs` ne doit pas être un sous-dossier de `logs` (issue #51)"
+    Le conteneur `lmelp` chowne récursivement son propre volume `LOG_PATH` à chaque
+    démarrage (utilisateur non-root configurable) — si `mongodb-logs` était imbriqué
+    dedans, ça écraserait l'ownership `mongodb` des logs Mongo et casserait les jobs
+    anacron (backup/rotation). D'où deux dossiers frères distincts, pas un parent/enfant.
 
 ## Étape 2 — Arrêter la stack sur le laptop
 

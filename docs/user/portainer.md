@@ -221,8 +221,8 @@ Intégrer avec des outils externes :
 ssh admin@nas-ip
 
 # Créer la structure
-sudo mkdir -p /volume1/docker/lmelp/data/{mongodb,backups,audios,logs/mongodb,cache/babelio}
-sudo chown -R 1000:1000 /volume1/docker/lmelp/data
+sudo mkdir -p /volume1/docker/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio}
+sudo chown -R 1000:1000 /volume1/docker/lmelp
 ```
 
 2. Déployer via Portainer (Container Manager → Portainer)
@@ -231,13 +231,18 @@ sudo chown -R 1000:1000 /volume1/docker/lmelp/data
    Portainer expliqué dans la note ci-dessus) :
 
 ```bash
-MONGO_DATA_PATH=/volume1/docker/lmelp/data/mongodb
-BACKUP_PATH=/volume1/docker/lmelp/data/backups
-AUDIO_PATH=/volume1/docker/lmelp/data/audios
-LOG_PATH=/volume1/docker/lmelp/data/logs
-MONGO_LOG_PATH=/volume1/docker/lmelp/data/logs/mongodb
-BABELIO_CACHE_PATH=/volume1/docker/lmelp/data/cache/babelio
+MONGO_DATA_PATH=/volume1/docker/lmelp/mongodb
+BACKUP_PATH=/volume1/docker/lmelp/backups
+AUDIO_PATH=/volume1/docker/lmelp/audios
+LOG_PATH=/volume1/docker/lmelp/logs
+MONGO_LOG_PATH=/volume1/docker/lmelp/mongodb-logs
+BABELIO_CACHE_PATH=/volume1/docker/lmelp/cache/babelio
 ```
+
+⚠️ `MONGO_LOG_PATH` ne doit **pas** être un sous-dossier de `LOG_PATH` : le conteneur
+`lmelp` chowne récursivement son propre volume `LOG_PATH` au démarrage (utilisateur
+non-root configurable), ce qui écraserait l'ownership `mongodb` des logs Mongo s'ils
+étaient imbriqués dedans.
 
 La communication entre services se fait via le réseau bridge Docker
 (`lmelp-network`) et les noms de service (ex. `mongo`) — aucune variable réseau

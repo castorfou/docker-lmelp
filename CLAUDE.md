@@ -60,14 +60,29 @@ Portainer et Docker Compose "pur" résolvent les chemins relatifs différemment 
 
 ```bash
 # ❌ MAUVAIS dans Portainer (chemins relatifs)
-MONGO_LOG_PATH=./data/logs/mongodb
+MONGO_LOG_PATH=./data/mongodb-logs
 
 # ✅ BON dans Portainer (chemins absolus)
-MONGO_LOG_PATH=/home/user/docker-lmelp/data/logs/mongodb
-MONGO_LOG_PATH=/volume1/docker/lmelp/data/logs/mongodb  # NAS Synology
+MONGO_LOG_PATH=/home/user/docker-lmelp/data/mongodb-logs
+MONGO_LOG_PATH=/volume1/docker/lmelp/data/mongodb-logs  # NAS Synology
 ```
 
-Cette différence de comportement a été identifiée lors du diagnostic d'un problème où MongoDB ne pouvait pas écrire ses logs. Portainer transformait le chemin relatif `./data/logs/mongodb` en `/data/compose/4/data/logs/mongodb` au lieu du chemin attendu.
+Cette différence de comportement a été identifiée lors du diagnostic d'un problème où MongoDB ne pouvait pas écrire ses logs. Portainer transformait le chemin relatif `./data/mongodb-logs` en `/data/compose/4/data/mongodb-logs` au lieu du chemin attendu.
+
+### Ne jamais imbriquer les volumes de deux services qui se chownent chacun
+
+**Piège découvert lors de l'issue #51** : `docker-compose.yml` montait `MONGO_LOG_PATH`
+en sous-dossier de `LOG_PATH` (`./data/logs/mongodb` sous `./data/logs`). Or le
+conteneur `lmelp` chowne récursivement et inconditionnellement son propre volume
+`LOG_PATH` à chaque démarrage (mécanisme PUID/PGID, issue #105) — ce qui écrasait
+silencieusement l'ownership `mongodb` que l'entrypoint mongo venait de poser sur ses
+propres logs, cassant les jobs anacron (backup/rotation) qui ne pouvaient plus y écrire.
+
+**Règle** : quand deux services montent chacun un volume et que l'un des deux fait un
+`chown -R` sur sa racine de montage (migration PUID/PGID, correction de permissions
+héritées, etc.), leurs chemins hôte respectifs ne doivent **jamais** être imbriqués
+l'un dans l'autre — même en tant que sous-dossier a priori "logique". Vérifier ce
+risque à chaque nouveau volume ajouté à `docker-compose.yml`.
 
 ### Méthodologie de debugging : Comprendre AVANT de contourner
 

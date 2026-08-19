@@ -66,6 +66,90 @@ class TestMongoDBEntrypointOwnership:
             "spawns create root-owned files on bind-mounted volumes"
         )
 
+    def test_entrypoint_anacron_loop_rechowns_before_each_run(self):
+        """The anacron loop must re-chown /backups and /var/log/mongodb to
+        mongodb before each `anacron -d` invocation, not just once before
+        the loop starts. Issue #51: a sibling service (lmelp) sharing an
+        overlapping bind-mounted parent directory can recursively re-own
+        /var/log/mongodb after the container started (PUID/PGID migration
+        chown, castorfou/lmelp#105) — the loop must self-heal within one
+        iteration instead of staying broken until a manual fix."""
+        with open("mongodb.Dockerfile") as f:
+            content = f.read()
+
+        anacron_loop_lines = [
+            line
+            for line in content.splitlines()
+            if "while true" in line and "anacron -d" in line
+        ]
+        assert anacron_loop_lines, (
+            "Could not find the anacron background loop line in mongodb.Dockerfile"
+        )
+        loop_line = anacron_loop_lines[0]
+
+        assert "chown -R mongodb:mongodb /backups /var/log/mongodb" in loop_line, (
+            "The anacron loop must re-chown /backups and /var/log/mongodb "
+            "to mongodb before each anacron -d invocation, not just once "
+            "at container startup"
+        )
+        chown_index = loop_line.index("chown -R mongodb:mongodb")
+        gosu_index = loop_line.index("gosu mongodb anacron -d")
+        assert chown_index < gosu_index, (
+            "The re-chown must happen before 'gosu mongodb anacron -d' in "
+            "each loop iteration"
+        )
+
+    def test_entrypoint_anacron_loop_interval_is_configurable(self):
+        """The loop's sleep interval must be configurable via
+        ANACRON_LOOP_INTERVAL (default 3600) so tests can exercise the
+        self-healing behaviour without waiting a full hour."""
+        with open("mongodb.Dockerfile") as f:
+            content = f.read()
+
+        anacron_loop_lines = [
+            line
+            for line in content.splitlines()
+            if "while true" in line and "anacron -d" in line
+        ]
+        assert anacron_loop_lines
+        assert 'sleep "${ANACRON_LOOP_INTERVAL:-3600}"' in anacron_loop_lines[0], (
+            "The anacron loop sleep interval must be configurable via "
+            "ANACRON_LOOP_INTERVAL (default 3600)"
+        )
+
+
+class TestDockerComposeLogPathSeparation:
+    """Issue #51: MONGO_LOG_PATH must not be nested under LOG_PATH.
+
+    lmelp's entrypoint recursively chowns its own LOG_PATH bind mount at
+    every startup (PUID/PGID migration, castorfou/lmelp#105/PR#106). If
+    MONGO_LOG_PATH lives under LOG_PATH's tree, that chown silently
+    re-owns mongo's log files to lmelp's PUID/PGID, breaking the anacron
+    backup/log-rotation jobs which then can't write there as `mongodb`."""
+
+    def test_mongo_log_path_default_is_not_nested_under_lmelp_log_path(self):
+        import re
+
+        with open("docker-compose.yml") as f:
+            content = f.read()
+
+        log_path_match = re.search(r"\$\{LOG_PATH:-([^}]+)\}", content)
+        mongo_log_path_match = re.search(r"\$\{MONGO_LOG_PATH:-([^}]+)\}", content)
+        assert log_path_match, "Could not find LOG_PATH default in docker-compose.yml"
+        assert mongo_log_path_match, (
+            "Could not find MONGO_LOG_PATH default in docker-compose.yml"
+        )
+
+        log_path = log_path_match.group(1).rstrip("/")
+        mongo_log_path = mongo_log_path_match.group(1).rstrip("/")
+
+        assert not mongo_log_path.startswith(log_path + "/"), (
+            f"MONGO_LOG_PATH default ({mongo_log_path!r}) must not be nested "
+            f"under LOG_PATH default ({log_path!r}) — lmelp's entrypoint "
+            "recursively chowns its own LOG_PATH mount and would silently "
+            "re-own mongo's log files (issue #51)"
+        )
+
 
 class TestMongoDBScriptSelfDefense:
     """Tests that backup_mongodb.sh and rotate_mongodb_logs.sh always run as
@@ -449,6 +533,105 @@ class TestMongoDBImageContent:
             assert owner.stdout.strip() == "999", (
                 "Backup files created via a root docker exec should still "
                 f"be owned by mongodb (UID 999), got UID {owner.stdout.strip()!r}"
+            )
+        finally:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+
+    def test_anacron_loop_self_heals_var_log_mongodb_ownership(self, tmp_path):
+        """Issue #51: if something external re-owns /var/log/mongodb while
+        the container is already running (e.g. a sibling service like
+        lmelp recursively chowning an overlapping bind-mounted parent
+        directory during its own PUID/PGID migration), the anacron loop
+        must self-heal the ownership back to mongodb within one loop
+        iteration — not require a manual chown or a full container
+        recreate to recover."""
+        log_dir = tmp_path / "mongo-logs"
+        log_dir.mkdir()
+
+        container_name = "lmelp-mongo-test-selfheal"
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        try:
+            run_result = subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    container_name,
+                    "-e",
+                    "ANACRON_LOOP_INTERVAL=2",
+                    "-v",
+                    f"{log_dir}:/var/log/mongodb",
+                    "lmelp-mongo:test",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (
+                f"Failed to start container: {run_result.stderr}"
+            )
+
+            def stat_owner():
+                result = subprocess.run(
+                    [
+                        "docker",
+                        "exec",
+                        container_name,
+                        "stat",
+                        "-c",
+                        "%u",
+                        "/var/log/mongodb",
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                return result.stdout.strip() if result.returncode == 0 else None
+
+            # Wait for the initial (pre-loop) chown to apply.
+            owner = None
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                owner = stat_owner()
+                if owner == "999":
+                    break
+                time.sleep(1)
+            assert owner == "999", (
+                f"Initial chown of /var/log/mongodb did not apply, got UID {owner!r}"
+            )
+
+            # Simulate the ownership drift observed in production (issue #51).
+            corrupt = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    "--user",
+                    "root",
+                    container_name,
+                    "chown",
+                    "-R",
+                    "1000:1000",
+                    "/var/log/mongodb",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert corrupt.returncode == 0, (
+                f"Failed to corrupt ownership: {corrupt.stderr}"
+            )
+            assert stat_owner() == "1000", "Corruption setup did not apply"
+
+            # The loop (interval=2s) should self-heal within a few iterations.
+            healed = False
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                if stat_owner() == "999":
+                    healed = True
+                    break
+                time.sleep(1)
+            assert healed, (
+                "Anacron loop did not self-heal /var/log/mongodb ownership "
+                "back to mongodb (UID 999) after external corruption"
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)

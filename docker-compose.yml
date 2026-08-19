@@ -10,7 +10,7 @@ services:
     volumes:
       - ${MONGO_DATA_PATH:-./data/mongodb}:/data/db
       - ${BACKUP_PATH:-./data/backups}:/backups
-      - ${MONGO_LOG_PATH:-./data/logs/mongodb}:/var/log/mongodb
+      - ${MONGO_LOG_PATH:-./data/mongodb-logs}:/var/log/mongodb
     environment:
       - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
     healthcheck:

@@ -240,7 +240,7 @@ AUDIO_PATH=./data/audios
 LOG_PATH=./data/logs
 
 # Logs MongoDB (mongod.log, backup.log, logrotate.log)
-MONGO_LOG_PATH=./data/logs/mongodb
+MONGO_LOG_PATH=./data/mongodb-logs
 
 # Cache Babelio (persisté entre redéploiements)
 BABELIO_CACHE_PATH=./data/cache/babelio
@@ -251,6 +251,10 @@ BABELIO_CACHE_PATH=./data/cache/babelio
 - `MONGO_LOG_PATH` est monté dans le container MongoDB pour tous les logs MongoDB (serveur, backup, rotation)
 - Les logs Docker (stdout/stderr) sont gérés par Docker et accessibles via `docker compose logs`
 - Configuration de rotation : 10MB max par fichier, 3 fichiers conservés
+- ⚠️ `MONGO_LOG_PATH` ne doit **jamais** être un sous-dossier de `LOG_PATH` : le
+  conteneur LMELP chowne récursivement son propre volume `LOG_PATH` au démarrage
+  (utilisateur non-root configurable), ce qui écraserait l'ownership `mongodb` des logs
+  MongoDB si ceux-ci étaient imbriqués dedans
 
 **⚠️ Important pour Portainer** : Sur Portainer, utilisez **toujours des chemins absolus** pour les volumes. Les chemins relatifs sont interprétés depuis le répertoire de travail de Portainer (`/data/compose/X/`) et non depuis votre repository Git.
 
@@ -264,18 +268,18 @@ MONGO_DATA_PATH=/mnt/storage/lmelp/mongodb
 BACKUP_PATH=/mnt/storage/lmelp/backups
 AUDIO_PATH=/mnt/storage/lmelp/audios
 LOG_PATH=/mnt/storage/lmelp/logs
-MONGO_LOG_PATH=/mnt/storage/lmelp/logs/mongodb
+MONGO_LOG_PATH=/mnt/storage/lmelp/mongodb-logs
 BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/mongodb,cache/babelio}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio}
 chmod -R 755 /mnt/storage/lmelp
 ```
 
-Le conteneur MongoDB chowne automatiquement `logs/mongodb` et `backups` vers l'utilisateur
+Le conteneur MongoDB chowne automatiquement `mongodb-logs` et `backups` vers l'utilisateur
 `mongodb` (UID 999) à chaque démarrage — aucune commande `chown` manuelle n'est nécessaire pour
 ces deux répertoires.
 
@@ -367,7 +371,7 @@ MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
 LOG_PATH=./data/logs
-MONGO_LOG_PATH=./data/logs/mongodb
+MONGO_LOG_PATH=./data/mongodb-logs
 ```
 
 ### Configuration production (NAS)
@@ -386,7 +390,7 @@ MONGO_DATA_PATH=/volume1/lmelp/mongodb
 BACKUP_PATH=/volume1/lmelp/backups
 AUDIO_PATH=/volume1/lmelp/audios
 LOG_PATH=/volume1/lmelp/logs
-MONGO_LOG_PATH=/volume1/lmelp/logs/mongodb
+MONGO_LOG_PATH=/volume1/lmelp/mongodb-logs
 
 # Backup avec rétention longue
 BACKUP_RETENTION_WEEKS=12

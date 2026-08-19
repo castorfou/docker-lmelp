@@ -75,7 +75,7 @@ dev = [
 # Configuration Ruff - Linter et formateur Python moderne
 [tool.ruff]
 # Règles activées
-extend-select = [
+select = [
     "E",      # pycodestyle errors
     "W",      # pycodestyle warnings
     "F",      # pyflakes
