@@ -28,6 +28,13 @@ if [ "$(id -u)" = "0" ]; then
     exec gosu mongodb "$0" "$@"
 fi
 
+# gosu does not reset $HOME like `su -` would, so it still points at /root
+# (inherited from the original root process) even though we now run as
+# mongodb. Tools invoked below that need a writable HOME for their own
+# local config/cache (mongosh, for its ~/.mongodb/mongosh directory) would
+# otherwise fail with a spurious EACCES warning on every run (issue #54).
+export HOME="$(getent passwd "$(id -u)" | cut -d: -f6)"
+
 # Configuration
 MONGO_HOST="${MONGO_HOST:-localhost}"
 MONGO_PORT="${MONGO_PORT:-27017}"

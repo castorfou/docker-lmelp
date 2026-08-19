@@ -183,6 +183,28 @@ class TestMongoDBScriptSelfDefense:
             "of the script, before any other logic executes as root"
         )
 
+    @pytest.mark.parametrize(
+        "script_path",
+        ["scripts/backup_mongodb.sh", "scripts/rotate_mongodb_logs.sh"],
+    )
+    def test_script_exports_home_for_current_user(self, script_path):
+        """Issue #54: gosu does not reset $HOME like `su -` would, so after
+        the root re-exec guard, $HOME still points at /root (inherited from
+        the original root process) even though the script now runs as
+        mongodb (UID 999). Tools invoked afterwards that need a writable
+        HOME for their own local config/cache (e.g. mongosh in
+        rotate_mongodb_logs.sh, which tries to create
+        /root/.mongodb/mongosh) fail with an EACCES permission warning on
+        every run unless HOME is explicitly corrected."""
+        with open(script_path) as f:
+            content = f.read()
+
+        assert 'export HOME="$(getent passwd "$(id -u)" | cut -d: -f6)"' in content, (
+            f"{script_path} must export HOME to the current user's real "
+            "home directory after the root re-exec guard, so tools like "
+            "mongosh don't try to write their config/cache under /root"
+        )
+
 
 class TestMongoDBImageContent:
     """Tests for MongoDB image content and configuration."""
