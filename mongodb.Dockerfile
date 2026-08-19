@@ -73,12 +73,18 @@ RUN echo '#!/bin/bash' > /docker-entrypoint-anacron.sh && \
     echo 'chown -R mongodb:mongodb /backups /var/log/mongodb' >> /docker-entrypoint-anacron.sh && \
     echo 'chown mongodb:mongodb /var/spool/anacron' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
+    echo '# Ownership watchdog, independent of the anacron loop below: a' >> /docker-entrypoint-anacron.sh && \
+    echo '# sibling service sharing an overlapping bind-mounted parent' >> /docker-entrypoint-anacron.sh && \
+    echo '# directory can re-own these paths after startup (issue #51) --' >> /docker-entrypoint-anacron.sh && \
+    echo '# self-heal on a short interval instead of staying broken. Kept' >> /docker-entrypoint-anacron.sh && \
+    echo '# separate from the anacron loop because `anacron -d` blocks for' >> /docker-entrypoint-anacron.sh && \
+    echo '# each jobs configured anacrontab delay (minutes) before running' >> /docker-entrypoint-anacron.sh && \
+    echo '# it, which would make re-chowning far too infrequent.' >> /docker-entrypoint-anacron.sh && \
+    echo '(while true; do chown -R mongodb:mongodb /backups /var/log/mongodb; sleep "${CHOWN_WATCHDOG_INTERVAL:-300}"; done) &' >> /docker-entrypoint-anacron.sh && \
+    echo '' >> /docker-entrypoint-anacron.sh && \
     echo '# Start anacron loop in the background (check every hour), as mongodb' >> /docker-entrypoint-anacron.sh && \
-    echo '# so spawned jobs do not create root-owned files. Re-chown before' >> /docker-entrypoint-anacron.sh && \
-    echo '# each iteration too: a sibling service sharing an overlapping' >> /docker-entrypoint-anacron.sh && \
-    echo '# bind-mounted parent directory can re-own these paths after' >> /docker-entrypoint-anacron.sh && \
-    echo '# startup (issue #51) -- self-heal instead of staying broken.' >> /docker-entrypoint-anacron.sh && \
-    echo '(while true; do chown -R mongodb:mongodb /backups /var/log/mongodb; gosu mongodb anacron -d; sleep "${ANACRON_LOOP_INTERVAL:-3600}"; done) &' >> /docker-entrypoint-anacron.sh && \
+    echo '# so spawned jobs do not create root-owned files' >> /docker-entrypoint-anacron.sh && \
+    echo '(while true; do gosu mongodb anacron -d; sleep "${ANACRON_LOOP_INTERVAL:-3600}"; done) &' >> /docker-entrypoint-anacron.sh && \
     echo '' >> /docker-entrypoint-anacron.sh && \
     echo '# Run the original MongoDB entrypoint' >> /docker-entrypoint-anacron.sh && \
     echo 'exec /usr/local/bin/docker-entrypoint.sh "$@"' >> /docker-entrypoint-anacron.sh && \

@@ -66,43 +66,9 @@ class TestMongoDBEntrypointOwnership:
             "spawns create root-owned files on bind-mounted volumes"
         )
 
-    def test_entrypoint_anacron_loop_rechowns_before_each_run(self):
-        """The anacron loop must re-chown /backups and /var/log/mongodb to
-        mongodb before each `anacron -d` invocation, not just once before
-        the loop starts. Issue #51: a sibling service (lmelp) sharing an
-        overlapping bind-mounted parent directory can recursively re-own
-        /var/log/mongodb after the container started (PUID/PGID migration
-        chown, castorfou/lmelp#105) — the loop must self-heal within one
-        iteration instead of staying broken until a manual fix."""
-        with open("mongodb.Dockerfile") as f:
-            content = f.read()
-
-        anacron_loop_lines = [
-            line
-            for line in content.splitlines()
-            if "while true" in line and "anacron -d" in line
-        ]
-        assert anacron_loop_lines, (
-            "Could not find the anacron background loop line in mongodb.Dockerfile"
-        )
-        loop_line = anacron_loop_lines[0]
-
-        assert "chown -R mongodb:mongodb /backups /var/log/mongodb" in loop_line, (
-            "The anacron loop must re-chown /backups and /var/log/mongodb "
-            "to mongodb before each anacron -d invocation, not just once "
-            "at container startup"
-        )
-        chown_index = loop_line.index("chown -R mongodb:mongodb")
-        gosu_index = loop_line.index("gosu mongodb anacron -d")
-        assert chown_index < gosu_index, (
-            "The re-chown must happen before 'gosu mongodb anacron -d' in "
-            "each loop iteration"
-        )
-
     def test_entrypoint_anacron_loop_interval_is_configurable(self):
-        """The loop's sleep interval must be configurable via
-        ANACRON_LOOP_INTERVAL (default 3600) so tests can exercise the
-        self-healing behaviour without waiting a full hour."""
+        """The anacron loop's sleep interval must be configurable via
+        ANACRON_LOOP_INTERVAL (default 3600)."""
         with open("mongodb.Dockerfile") as f:
             content = f.read()
 
@@ -115,6 +81,39 @@ class TestMongoDBEntrypointOwnership:
         assert 'sleep "${ANACRON_LOOP_INTERVAL:-3600}"' in anacron_loop_lines[0], (
             "The anacron loop sleep interval must be configurable via "
             "ANACRON_LOOP_INTERVAL (default 3600)"
+        )
+
+    def test_entrypoint_has_ownership_watchdog_loop(self):
+        """A dedicated loop, independent of the anacron loop, must
+        periodically re-chown /backups and /var/log/mongodb to mongodb.
+        Issue #51: a sibling service (lmelp) sharing an overlapping
+        bind-mounted parent directory can recursively re-own
+        /var/log/mongodb after the container started (PUID/PGID migration
+        chown, castorfou/lmelp#105) — this watchdog must self-heal within
+        a short, configurable interval instead of staying broken. It must
+        be kept separate from the anacron loop: `anacron -d` blocks for
+        each job's configured anacrontab delay (several minutes) before
+        running it, which would make re-chowning far too infrequent if
+        interleaved with that call."""
+        with open("mongodb.Dockerfile") as f:
+            content = f.read()
+
+        watchdog_loop_lines = [
+            line
+            for line in content.splitlines()
+            if "while true" in line
+            and "chown -R mongodb:mongodb /backups /var/log/mongodb" in line
+            and "anacron -d" not in line
+        ]
+        assert watchdog_loop_lines, (
+            "Could not find a dedicated ownership-watchdog loop (re-chowning "
+            "/backups and /var/log/mongodb) separate from the anacron loop "
+            "in mongodb.Dockerfile"
+        )
+        assert 'sleep "${CHOWN_WATCHDOG_INTERVAL:-300}"' in watchdog_loop_lines[0], (
+            "The ownership watchdog's sleep interval must be configurable "
+            "via CHOWN_WATCHDOG_INTERVAL (default 300) so tests can exercise "
+            "the self-healing behaviour quickly"
         )
 
 
@@ -537,14 +536,18 @@ class TestMongoDBImageContent:
         finally:
             subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
 
-    def test_anacron_loop_self_heals_var_log_mongodb_ownership(self, tmp_path):
+    def test_ownership_watchdog_self_heals_var_log_mongodb(self, tmp_path):
         """Issue #51: if something external re-owns /var/log/mongodb while
         the container is already running (e.g. a sibling service like
         lmelp recursively chowning an overlapping bind-mounted parent
-        directory during its own PUID/PGID migration), the anacron loop
-        must self-heal the ownership back to mongodb within one loop
-        iteration — not require a manual chown or a full container
-        recreate to recover."""
+        directory during its own PUID/PGID migration), the dedicated
+        ownership watchdog loop must self-heal it back to mongodb within
+        a short interval — not require a manual chown or a full container
+        recreate to recover. Deliberately independent of the anacron loop
+        (ANACRON_LOOP_INTERVAL): `anacron -d` blocks for each job's
+        configured anacrontab delay (minutes) before running it, so tying
+        the re-chown to that loop would make it far too slow to verify
+        (or to actually self-heal in practice)."""
         log_dir = tmp_path / "mongo-logs"
         log_dir.mkdir()
 
@@ -559,7 +562,7 @@ class TestMongoDBImageContent:
                     "--name",
                     container_name,
                     "-e",
-                    "ANACRON_LOOP_INTERVAL=2",
+                    "CHOWN_WATCHDOG_INTERVAL=2",
                     "-v",
                     f"{log_dir}:/var/log/mongodb",
                     "lmelp-mongo:test",
@@ -630,7 +633,7 @@ class TestMongoDBImageContent:
                     break
                 time.sleep(1)
             assert healed, (
-                "Anacron loop did not self-heal /var/log/mongodb ownership "
+                "Ownership watchdog did not self-heal /var/log/mongodb "
                 "back to mongodb (UID 999) after external corruption"
             )
         finally:
