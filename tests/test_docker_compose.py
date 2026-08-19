@@ -206,3 +206,54 @@ class TestLmelpExportGhTokenConfiguration:
             "GH_TOKEN should be passed through via the GH_TOKEN env variable, "
             "not hardcoded"
         )
+
+
+class TestLmelpExportLogVolumeConfiguration:
+    """Tests for lmelp-export log persistence (issue #56).
+
+    The anacron job embedded in the ghcr.io/castorfou/lmelp-mobile-export
+    image writes to /var/log/publish-data-release.log *inside* the
+    container. Without a bind-mounted volume on /var/log, that log is lost
+    whenever the container is recreated and never visible on the host.
+    """
+
+    def _get_lmelp_export(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["lmelp-export"]
+
+    def test_lmelp_export_has_log_volume(self):
+        """Verify that lmelp-export mounts a host volume on /var/log."""
+        service = self._get_lmelp_export()
+        volumes = service.get("volumes", [])
+        has_log_volume = any(":/var/log" in str(v) for v in volumes)
+        assert has_log_volume, (
+            "lmelp-export should mount a volume on /var/log so the anacron "
+            "job log (publish-data-release.log) survives container recreation"
+        )
+
+    def test_log_volume_uses_env_variable(self):
+        """Verify that the log volume path is configurable via an env variable."""
+        service = self._get_lmelp_export()
+        volumes = service.get("volumes", [])
+        log_volume = next((v for v in volumes if ":/var/log" in str(v)), None)
+        assert log_volume is not None, "Log volume should exist"
+        assert "LMELP_EXPORT_LOG_PATH" in str(log_volume), (
+            "Log volume should be configurable via LMELP_EXPORT_LOG_PATH"
+        )
+
+    def test_log_volume_not_nested_under_lmelp_log_path(self):
+        """Verify the default log host path is not nested under lmelp's LOG_PATH.
+
+        lmelp recursively chowns its own LOG_PATH volume at every startup
+        (PUID/PGID mechanism) -- nesting another service's volume under it
+        would silently overwrite that service's file ownership (issue #51).
+        """
+        service = self._get_lmelp_export()
+        volumes = service.get("volumes", [])
+        log_volume = next((v for v in volumes if ":/var/log" in str(v)), None)
+        assert log_volume is not None, "Log volume should exist"
+        assert "./data/logs/" not in str(log_volume), (
+            "lmelp-export log path should not be nested under LOG_PATH "
+            "(./data/logs), which lmelp chowns recursively at startup"
+        )
