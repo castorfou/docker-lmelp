@@ -48,18 +48,18 @@ ADB_HOST=host-gateway
 ADB_PORT=5037
 
 # Logs du job anacron (publish-data-release.log)
-LMELP_EXPORT_LOG_PATH=./data/lmelp-export-logs
+LMELP_EXPORT_LOG_PATH=./data/logs/lmelp-export
 ```
 
 **Valeurs par défaut**:
 
 - `ADB_HOST=host-gateway`: Permet au container d'atteindre le daemon ADB du laptop
 - `ADB_PORT=5037`: Port standard du daemon ADB
-- `LMELP_EXPORT_LOG_PATH=./data/lmelp-export-logs`: Persiste sur l'hôte le log du job anacron (`publish-data-release.log`), qui sans ce volume reste piégé dans le conteneur et disparaît à chaque recréation
+- `LMELP_EXPORT_LOG_PATH=./data/logs/lmelp-export`: Persiste sur l'hôte le log du job anacron (`publish-data-release.log`), qui sans ce volume reste piégé dans le conteneur et disparaît à chaque recréation
 
 Ces valeurs conviennent dans la plupart des cas. Modifiez-les uniquement si vous avez une configuration ADB personnalisée.
 
-⚠️ **Ne placez jamais `LMELP_EXPORT_LOG_PATH` sous `LOG_PATH`** : le conteneur `lmelp` chowne récursivement son propre volume `LOG_PATH` à chaque démarrage (PUID/PGID), ce qui écraserait l'ownership des logs de `lmelp-export` s'ils étaient imbriqués dedans (même piège que `MONGO_LOG_PATH`, cf. issue #51).
+`LMELP_EXPORT_LOG_PATH` peut être placé sous `LOG_PATH` (contrairement à `MONGO_LOG_PATH`, cf. issue #51) : `lmelp-export` exécute son job anacron en root, sans jamais dropper de privilège, donc le `chown -R` récursif que `lmelp` applique à `LOG_PATH` à chaque démarrage ne l'empêche pas d'écrire — root ignore l'ownership des fichiers.
 
 ### Démarrage du service
 
@@ -198,7 +198,7 @@ Sans `GH_TOKEN`, le reste du service `lmelp-export` fonctionne normalement — s
 Ces vérifications nécessitent un déploiement réel sur le NAS et ne peuvent pas être automatisées en tests unitaires :
 
 - [ ] Après un redémarrage ou une coupure d'alimentation du NAS, confirmer que le job anacron de `lmelp-export` se redéclenche correctement (par analogie avec les problèmes d'ownership déjà rencontrés sur l'anacron du service `mongo`, voir [castorfou/docker-lmelp#48](https://github.com/castorfou/docker-lmelp/issues/48) et [#51](https://github.com/castorfou/docker-lmelp/issues/51) — `lmelp-export` n'a toutefois pas de volume de sortie partagé équivalent à `/backups`, le risque est probablement moindre).
-- [ ] Consulter `${LMELP_EXPORT_LOG_PATH}/publish-data-release.log` sur l'hôte (par défaut `./data/lmelp-export-logs/publish-data-release.log`) pour confirmer que le job s'est bien exécuté et voir sa sortie.
+- [ ] Consulter `${LMELP_EXPORT_LOG_PATH}/publish-data-release.log` sur l'hôte (par défaut `./data/logs/lmelp-export/publish-data-release.log`) pour confirmer que le job s'est bien exécuté et voir sa sortie.
 - [ ] Vérifier qu'un asset a bien été publié sur la release `data-latest` de `castorfou/lmelp-mobile` après le déclenchement du job (`gh release view data-latest --repo castorfou/lmelp-mobile`).
 - [ ] Sur plusieurs jours d'usage réel, évaluer si la cadence quotidienne du job est adaptée, ou si elle doit être ajustée.
 

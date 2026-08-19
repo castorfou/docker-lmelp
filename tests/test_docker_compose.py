@@ -242,18 +242,19 @@ class TestLmelpExportLogVolumeConfiguration:
             "Log volume should be configurable via LMELP_EXPORT_LOG_PATH"
         )
 
-    def test_log_volume_not_nested_under_lmelp_log_path(self):
-        """Verify the default log host path is not nested under lmelp's LOG_PATH.
+    def test_log_volume_default_nested_under_lmelp_log_path(self):
+        """Verify the default log host path is a subdirectory of lmelp's LOG_PATH.
 
-        lmelp recursively chowns its own LOG_PATH volume at every startup
-        (PUID/PGID mechanism) -- nesting another service's volume under it
-        would silently overwrite that service's file ownership (issue #51).
+        Unlike MONGO_LOG_PATH (issue #51), nesting here is safe: lmelp-export
+        runs its anacron job as root (no gosu/privilege drop in
+        Dockerfile.export), so lmelp's periodic chown -R of LOG_PATH cannot
+        break its writes -- root ignores file ownership.
         """
         service = self._get_lmelp_export()
         volumes = service.get("volumes", [])
         log_volume = next((v for v in volumes if ":/var/log" in str(v)), None)
         assert log_volume is not None, "Log volume should exist"
-        assert "./data/logs/" not in str(log_volume), (
-            "lmelp-export log path should not be nested under LOG_PATH "
-            "(./data/logs), which lmelp chowns recursively at startup"
+        assert "./data/logs/lmelp-export" in str(log_volume), (
+            "lmelp-export log path should default to a subdirectory of "
+            "LOG_PATH (./data/logs/lmelp-export)"
         )

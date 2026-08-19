@@ -163,9 +163,10 @@ services:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
       # anacron writes /var/log/publish-data-release.log inside the
       # container; without this volume the log never reaches the host.
-      # Not nested under LOG_PATH: lmelp chowns LOG_PATH recursively at
-      # every startup (PUID/PGID), which would overwrite ownership here.
-      - ${LMELP_EXPORT_LOG_PATH:-./data/lmelp-export-logs}:/var/log
+      # Safe to nest under LOG_PATH here (unlike MONGO_LOG_PATH, issue #51):
+      # lmelp-export runs anacron as root (no gosu/privilege drop), so
+      # lmelp's periodic chown -R of LOG_PATH cannot break its writes.
+      - ${LMELP_EXPORT_LOG_PATH:-./data/logs/lmelp-export}:/var/log
     environment:
       - LMELP_MONGO_URI=mongodb://mongo:27017
       - LMELP_CALIBRE_DB=/calibre/metadata.db
