@@ -226,7 +226,7 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
 - [:white_check_mark:] L'application LMELP est accessible et affiche les données migrées
 - [:white_check_mark:] `docker exec lmelp-mongo mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"` renvoie un nombre cohérent avec l'ancienne installation (fais en root depuis le container lmelp-mongo : `mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"`)
 - [:white_check_mark:] Un backup manuel fonctionne (`FORCE_BACKUP=1 /scripts/backup_mongodb.sh`, voir [Backups & Restauration](backup-restore.md))
-- [:x:] La bibliothèque Calibre est visible depuis le back-office (lecture seule)
+- [:white_check_mark:] La bibliothèque Calibre est visible depuis le back-office (lecture seule)
 - [:white_check_mark:] Le cache Babelio existant est bien pris en compte (pas de re-scraping à froid) :
       1. Vérifier via **File Station** que `/docker/lmelp/cache/babelio` contient bien
          des fichiers `.json` (non vide, cohérent avec ce qui a été zippé/uploadé à
@@ -254,14 +254,6 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
   machine précise, qui ne s'applique plus une fois le `backend` déplacé sur le NAS. Pas
   de solution équivalente côté NAS pour l'instant (suivi dans
   [castorfou/back-office-lmelp#259 - Support d'un proxy HTTP sortant pour les requêtes vers Babelio](https://github.com/castorfou/back-office-lmelp/issues/259)).
-- **Intégration Calibre en échec sur bibliothèque WAL active** : si `CALIBRE_HOST_PATH`
-  pointe vers une bibliothèque activement écrite en mode journal WAL (cas d'une instance
-  Calibre-Web-Automated live, comme sur ce NAS), `back-office-lmelp` échoue avec
-  `sqlite3.OperationalError: unable to open database file` — `mode=ro` seul ne suffit pas
-  pour une base WAL sur un montage `:ro` (SQLite a quand même besoin d'un accès en
-  écriture au fichier `-shm` pour le verrouillage). Correctif identifié (ajouter
-  `immutable=1` à l'URI de connexion) : suivi dans
-  [castorfou/back-office-lmelp#261 - Intégration Calibre échoue en lecture seule sur bibliothèque WAL active (mode=ro insuffisant, besoin de immutable=1)](https://github.com/castorfou/back-office-lmelp/issues/261).
 - **Logs backup/logrotate mongo (anacron) absents ou mal ownés** : `/var/log/mongodb/backup.log`
   et `logrotate.log` n'apparaissent pas sur le NAS malgré des jobs anacron bien
   déclenchés (`chown -R mongodb:mongodb` manuel dans la console du conteneur débloque
@@ -272,16 +264,16 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
 
 ## Sous-issues liées
 
-| Sous-issue                                                                        | Sujet                                                                   | Statut |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------ |
-| [castorfou/docker-lmelp#48](https://github.com/castorfou/docker-lmelp/issues/48)                     | Anacron mongo écrit les backups/logs en root                            | ✅ Fermée |
-| [castorfou/back-office-lmelp#258](https://github.com/castorfou/back-office-lmelp/issues/258) | Conteneur backend tourne en root (cache Babelio)                        | ✅ Fermée |
+| Sous-issue                                                                                   | Sujet                                                                   | Statut    |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | --------- |
+| [castorfou/docker-lmelp#48](https://github.com/castorfou/docker-lmelp/issues/48)             | Anacron mongo écrit les backups/logs en root                            | ✅ Fermée  |
+| [castorfou/back-office-lmelp#258](https://github.com/castorfou/back-office-lmelp/issues/258) | Conteneur backend tourne en root (cache Babelio)                        | ✅ Fermée  |
 | [castorfou/back-office-lmelp#259](https://github.com/castorfou/back-office-lmelp/issues/259) | Support proxy HTTP sortant pour Babelio                                 | 🔵 Ouverte |
-| [castorfou/lmelp#105](https://github.com/castorfou/lmelp/issues/105)                                 | Conteneur lmelp tourne en root (audios/transcriptions)                  | ✅ Fermée |
-| [castorfou/lmelp-mobile#116](https://github.com/castorfou/lmelp-mobile/issues/116)                   | Repenser séparation appli/données + ADB NAS                             | 🔵 Ouverte |
-| [castorfou/lmelp-mobile#117](https://github.com/castorfou/lmelp-mobile/issues/117)                   | Adapter le pipeline Whisper/PGX au NAS                                  | 🔵 Ouverte |
-| [castorfou/back-office-lmelp#261](https://github.com/castorfou/back-office-lmelp/issues/261) | Intégration Calibre échoue en lecture seule sur bibliothèque WAL active | 🔵 Ouverte |
-| [castorfou/docker-lmelp#51](https://github.com/castorfou/docker-lmelp/issues/51) | Logs backup/logrotate mongo (anacron) : ownership incohérent | 🔵 Ouverte |
+| [castorfou/lmelp#105](https://github.com/castorfou/lmelp/issues/105)                         | Conteneur lmelp tourne en root (audios/transcriptions)                  | ✅ Fermée  |
+| [castorfou/lmelp-mobile#116](https://github.com/castorfou/lmelp-mobile/issues/116)           | Repenser séparation appli/données + ADB NAS                             | 🔵 Ouverte |
+| [castorfou/lmelp-mobile#117](https://github.com/castorfou/lmelp-mobile/issues/117)           | Adapter le pipeline Whisper/PGX au NAS                                  | 🔵 Ouverte |
+| [castorfou/back-office-lmelp#261](https://github.com/castorfou/back-office-lmelp/issues/261) | Intégration Calibre échoue en lecture seule sur bibliothèque WAL active | ✅ Fermée  |
+| [castorfou/docker-lmelp#51](https://github.com/castorfou/docker-lmelp/issues/51)             | Logs backup/logrotate mongo (anacron) : ownership incohérent            | 🔵 Ouverte |
 
 
 ## Historique
