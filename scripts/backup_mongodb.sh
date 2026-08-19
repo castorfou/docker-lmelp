@@ -24,6 +24,13 @@ if [ "$(id -u)" = "0" ]; then
     exec gosu mongodb "$0" "$@"
 fi
 
+# gosu does not reset $HOME like `su -` would, so it still points at /root
+# (inherited from the original root process) even though we now run as
+# mongodb. Kept consistent with rotate_mongodb_logs.sh for any tool
+# invoked below that needs a writable HOME for its own local config/cache
+# (issue #54).
+export HOME="$(getent passwd "$(id -u)" | cut -d: -f6)"
+
 # Configuration from environment variables with defaults
 MONGO_HOST="${MONGO_HOST:-localhost}"
 MONGO_PORT="${MONGO_PORT:-27017}"
