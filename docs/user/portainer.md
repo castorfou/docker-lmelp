@@ -49,9 +49,7 @@ Ouvrir Portainer dans votre navigateur :
 **Git Repository** :
 
 ```
-Authentication: Coche
-Username: castorfou
-Personal Access Token: <voir dans enpass: github personal access tokens>
+Authentication: Ne Pas cocher
 Repository URL: https://github.com/castorfou/docker-lmelp
 Repository reference: refs/heads/main
 Compose path: docker-compose.yml
@@ -60,14 +58,12 @@ Compose path: docker-compose.yml
 **GitOps updates** : Cocher pour detecter les mises a jour de `docker-compose.yml`
 
 
-
 **Environment Variables** : Cliquer sur Load variables from .env file et Selectionner le fichier `.env`
 
 ### Étape 3 : Déployer
 
 1. Vérifier la configuration
-2. Cocher **Pull latest image versions** (recommandé)
-3. Cliquer sur **Deploy the stack**
+2. Cliquer sur **Deploy the stack**
 
 Portainer va :
 
@@ -83,6 +79,11 @@ Aller dans **Stacks** → **lmelp-stack** pour voir :
 - Liste des services (`lmelp-mongo`, `lmelp-frontoffice`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`)
 - État de chaque container (vert = healthy)
 - Logs en temps réel
+
+En naviguant sur chaque container :
+
+- lmelp : http://localhost:8501/
+- backoffice-lmelp : http://localhost:8080/
 
 
 ## Gestion de la stack dans Portainer
