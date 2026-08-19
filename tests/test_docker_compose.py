@@ -169,3 +169,92 @@ class TestBabelioCacheConfiguration:
         assert "BABELIO_CACHE_PATH" in str(babelio_volume), (
             "Babelio cache volume should use BABELIO_CACHE_PATH variable"
         )
+
+
+class TestLmelpExportGhTokenConfiguration:
+    """Tests for GH_TOKEN provisioning on the lmelp-export service (issue #56)."""
+
+    def _get_lmelp_export(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["lmelp-export"]
+
+    def _get_env_list(self, service):
+        """Return service environment as a list of strings."""
+        env = service.get("environment", [])
+        if isinstance(env, dict):
+            return [f"{k}={v}" for k, v in env.items()]
+        return env
+
+    def test_lmelp_export_has_gh_token_env(self):
+        """Verify that lmelp-export defines a GH_TOKEN environment variable."""
+        service = self._get_lmelp_export()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "GH_TOKEN" in env_keys, (
+            "lmelp-export should define GH_TOKEN environment variable "
+            "(required by 'export-and-publish-release' for 'gh release upload')"
+        )
+
+    def test_gh_token_uses_env_variable(self):
+        """Verify that GH_TOKEN is passed through from the host .env, not hardcoded."""
+        service = self._get_lmelp_export()
+        env_list = self._get_env_list(service)
+        gh_token_entry = next((e for e in env_list if e.startswith("GH_TOKEN=")), None)
+        assert gh_token_entry is not None, "GH_TOKEN should be defined"
+        assert "${GH_TOKEN" in gh_token_entry, (
+            "GH_TOKEN should be passed through via the GH_TOKEN env variable, "
+            "not hardcoded"
+        )
+
+
+class TestLmelpExportLogVolumeConfiguration:
+    """Tests for lmelp-export log persistence (issue #56).
+
+    The anacron job embedded in the ghcr.io/castorfou/lmelp-mobile-export
+    image writes to /var/log/publish-data-release.log *inside* the
+    container. Without a bind-mounted volume on /var/log, that log is lost
+    whenever the container is recreated and never visible on the host.
+    """
+
+    def _get_lmelp_export(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["lmelp-export"]
+
+    def test_lmelp_export_has_log_volume(self):
+        """Verify that lmelp-export mounts a host volume on /var/log."""
+        service = self._get_lmelp_export()
+        volumes = service.get("volumes", [])
+        has_log_volume = any(":/var/log" in str(v) for v in volumes)
+        assert has_log_volume, (
+            "lmelp-export should mount a volume on /var/log so the anacron "
+            "job log (publish-data-release.log) survives container recreation"
+        )
+
+    def test_log_volume_uses_env_variable(self):
+        """Verify that the log volume path is configurable via an env variable."""
+        service = self._get_lmelp_export()
+        volumes = service.get("volumes", [])
+        log_volume = next((v for v in volumes if ":/var/log" in str(v)), None)
+        assert log_volume is not None, "Log volume should exist"
+        assert "LMELP_EXPORT_LOG_PATH" in str(log_volume), (
+            "Log volume should be configurable via LMELP_EXPORT_LOG_PATH"
+        )
+
+    def test_log_volume_default_nested_under_lmelp_log_path(self):
+        """Verify the default log host path is a subdirectory of lmelp's LOG_PATH.
+
+        Unlike MONGO_LOG_PATH (issue #51), nesting here is safe: lmelp-export
+        runs its anacron job as root (no gosu/privilege drop in
+        Dockerfile.export), so lmelp's periodic chown -R of LOG_PATH cannot
+        break its writes -- root ignores file ownership.
+        """
+        service = self._get_lmelp_export()
+        volumes = service.get("volumes", [])
+        log_volume = next((v for v in volumes if ":/var/log" in str(v)), None)
+        assert log_volume is not None, "Log volume should exist"
+        assert "./data/logs/lmelp-export" in str(log_volume), (
+            "lmelp-export log path should default to a subdirectory of "
+            "LOG_PATH (./data/logs/lmelp-export)"
+        )

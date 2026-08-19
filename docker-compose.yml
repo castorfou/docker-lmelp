@@ -161,12 +161,21 @@ services:
         condition: service_healthy
     volumes:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
+      # anacron writes /var/log/publish-data-release.log inside the
+      # container; without this volume the log never reaches the host.
+      # Safe to nest under LOG_PATH here (unlike MONGO_LOG_PATH, issue #51):
+      # lmelp-export runs anacron as root (no gosu/privilege drop), so
+      # lmelp's periodic chown -R of LOG_PATH cannot break its writes.
+      - ${LMELP_EXPORT_LOG_PATH:-./data/logs/lmelp-export}:/var/log
     environment:
       - LMELP_MONGO_URI=mongodb://mongo:27017
       - LMELP_CALIBRE_DB=/calibre/metadata.db
       - LMELP_CALIBRE_VIRTUAL_LIBRARY=${CALIBRE_VIRTUAL_LIBRARY_TAG:-guillaume}
       - ADB_HOST=${ADB_HOST:-host-gateway}
       - ADB_PORT=${ADB_PORT:-5037}
+      # GitHub token used by 'export-and-publish-release' (gh release upload
+      # to the 'data-latest' release of castorfou/lmelp-mobile)
+      - GH_TOKEN=${GH_TOKEN:-}
     extra_hosts:
       - "host-gateway:host-gateway"
     healthcheck:

@@ -29,7 +29,7 @@ en tant qu'utilisateur simple (pour moi guillaume uid 1027)
 créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
 
 - `/docker/lmelp`
-- `/docker/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio}`
+- `/docker/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio}`
 ```
 
 !!! warning "`mongodb-logs` ne doit pas être un sous-dossier de `logs` (issue #51)"
