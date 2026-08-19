@@ -169,3 +169,40 @@ class TestBabelioCacheConfiguration:
         assert "BABELIO_CACHE_PATH" in str(babelio_volume), (
             "Babelio cache volume should use BABELIO_CACHE_PATH variable"
         )
+
+
+class TestLmelpExportGhTokenConfiguration:
+    """Tests for GH_TOKEN provisioning on the lmelp-export service (issue #56)."""
+
+    def _get_lmelp_export(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["lmelp-export"]
+
+    def _get_env_list(self, service):
+        """Return service environment as a list of strings."""
+        env = service.get("environment", [])
+        if isinstance(env, dict):
+            return [f"{k}={v}" for k, v in env.items()]
+        return env
+
+    def test_lmelp_export_has_gh_token_env(self):
+        """Verify that lmelp-export defines a GH_TOKEN environment variable."""
+        service = self._get_lmelp_export()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "GH_TOKEN" in env_keys, (
+            "lmelp-export should define GH_TOKEN environment variable "
+            "(required by 'export-and-publish-release' for 'gh release upload')"
+        )
+
+    def test_gh_token_uses_env_variable(self):
+        """Verify that GH_TOKEN is passed through from the host .env, not hardcoded."""
+        service = self._get_lmelp_export()
+        env_list = self._get_env_list(service)
+        gh_token_entry = next((e for e in env_list if e.startswith("GH_TOKEN=")), None)
+        assert gh_token_entry is not None, "GH_TOKEN should be defined"
+        assert "${GH_TOKEN" in gh_token_entry, (
+            "GH_TOKEN should be passed through via the GH_TOKEN env variable, "
+            "not hardcoded"
+        )

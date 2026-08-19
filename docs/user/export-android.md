@@ -153,6 +153,48 @@ Le container `lmelp-export`:
 └───────────────────────────────────────────┘
 ```
 
+## Publication automatique sur GitHub Release
+
+En complément de l'export vers un téléphone Android, le container `lmelp-export` propose la commande `export-and-publish-release`, qui exporte `lmelp.db`, génère des métadonnées (taille, SHA-256, date d'export) et publie le tout comme asset de la GitHub Release `data-latest` du repo `castorfou/lmelp-mobile` :
+
+```bash
+docker exec lmelp-export export-and-publish-release
+```
+
+Un job `anacron` embarqué dans l'image déclenche cette commande automatiquement (cadence quotidienne), suivant le même pattern que la rotation de logs et le backup MongoDB du service `mongo`.
+
+### Configuration requise : `GH_TOKEN`
+
+Cette commande utilise `gh release upload` en interne et nécessite un token GitHub :
+
+```bash
+# Token GitHub pour la publication automatique de release (optionnel)
+GH_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+```
+
+**Scope minimal recommandé** : Personal Access Token *fine-grained*, limité au repo `castorfou/lmelp-mobile`, permission `Contents: Read and write`.
+
+Sans `GH_TOKEN`, le reste du service `lmelp-export` fonctionne normalement — seule la commande `export-and-publish-release` échoue.
+
+#### Créer le token
+
+1. Aller sur [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new) (Fine-grained tokens).
+2. **Token name** : par exemple `lmelp-export-publish-release`.
+3. **Expiration** : au choix (pensez à renouveler avant expiration, sous peine de voir `export-and-publish-release` échouer silencieusement côté anacron).
+4. **Resource owner** : votre compte (`castorfou` ou équivalent).
+5. **Repository access** : `Only select repositories` → sélectionner uniquement `lmelp-mobile`.
+6. **Permissions** → **Repository permissions** → `Contents` → `Read and write` (laisser le reste à `No access`).
+7. **Generate token**, puis copier la valeur (`github_pat_...`) immédiatement — elle n'est affichée qu'une fois.
+8. Coller cette valeur dans `GH_TOKEN=` du fichier `.env` (laptop) ou `.env.nas` (NAS), puis redéployer le service `lmelp-export` (`docker compose up -d --force-recreate lmelp-export`) pour que le nouveau token soit pris en compte.
+
+### Checklist de validation en conditions réelles (NAS)
+
+Ces vérifications nécessitent un déploiement réel sur le NAS et ne peuvent pas être automatisées en tests unitaires :
+
+- [ ] Après un redémarrage ou une coupure d'alimentation du NAS, confirmer que le job anacron de `lmelp-export` se redéclenche correctement (par analogie avec les problèmes d'ownership déjà rencontrés sur l'anacron du service `mongo`, voir [castorfou/docker-lmelp#48](https://github.com/castorfou/docker-lmelp/issues/48) et [#51](https://github.com/castorfou/docker-lmelp/issues/51) — `lmelp-export` n'a toutefois pas de volume de sortie partagé équivalent à `/backups`, le risque est probablement moindre).
+- [ ] Vérifier qu'un asset a bien été publié sur la release `data-latest` de `castorfou/lmelp-mobile` après le déclenchement du job (`gh release view data-latest --repo castorfou/lmelp-mobile`).
+- [ ] Sur plusieurs jours d'usage réel, évaluer si la cadence quotidienne du job est adaptée, ou si elle doit être ajustée.
+
 ## Dépannage
 
 ### Le service ne démarre pas
