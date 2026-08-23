@@ -350,3 +350,57 @@ class TestPgxConfiguration:
         assert "PGX_KEYS_PATH" in str(pgx_keys_volume), (
             "PGX keys volume should be configurable via PGX_KEYS_PATH"
         )
+
+
+class TestPgxKeysWatchdogConfiguration:
+    """Tests for the PGX SSH key permissions watchdog (issue #61).
+
+    The lmelp image generates the dedicated PGX SSH private key with correct
+    permissions (600, via ssh-keygen) at first startup, but something external
+    to both lmelp and docker-lmelp (most likely the NAS's own ACL
+    synchronization) has been observed resetting it to 755 afterwards. Since
+    docker-lmelp does not build the lmelp image (pulled from ghcr.io), it
+    cannot inject a fix into its entrypoint -- instead a lightweight sidecar
+    service periodically re-applies safe permissions, mirroring the
+    self-healing ownership watchdog already used for MongoDB (issue #51).
+    """
+
+    def _get_watchdog(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["pgx-keys-watchdog"]
+
+    def test_pgx_keys_watchdog_service_exists(self):
+        """Verify that the pgx-keys-watchdog service is defined."""
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        assert "pgx-keys-watchdog" in config["services"], (
+            "pgx-keys-watchdog service should be defined"
+        )
+
+    def test_pgx_keys_watchdog_mounts_pgx_keys_volume(self):
+        """Verify that the watchdog mounts the same PGX_KEYS_PATH volume."""
+        service = self._get_watchdog()
+        volumes = service.get("volumes", [])
+        assert volumes, "pgx-keys-watchdog should mount a volume"
+        assert any("PGX_KEYS_PATH" in str(v) for v in volumes), (
+            "pgx-keys-watchdog should mount the volume configured via PGX_KEYS_PATH"
+        )
+
+    def test_pgx_keys_watchdog_command_chmods_private_key_to_600(self):
+        """Verify that the watchdog command restores 600 on the private key."""
+        service = self._get_watchdog()
+        command = service.get("command", "")
+        assert "chmod 600" in command, (
+            "pgx-keys-watchdog command should chmod the private key to 600"
+        )
+        assert "pgx_lmelp_ed25519" in command, (
+            "pgx-keys-watchdog command should target the PGX private key file"
+        )
+
+    def test_pgx_keys_watchdog_has_restart_policy(self):
+        """Verify that the watchdog restarts automatically."""
+        service = self._get_watchdog()
+        assert service.get("restart") == "unless-stopped", (
+            "pgx-keys-watchdog should have restart: unless-stopped"
+        )
