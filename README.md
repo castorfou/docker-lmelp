@@ -10,6 +10,7 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 - **Stack complète** : MongoDB + LMELP App + Back-Office (Frontend + Backend)
 - **Intégration Calibre** : Accès optionnel à votre bibliothèque Calibre existante depuis le back-office
 - **Export Android** : Synchronisation automatique vers téléphone Android via ADB (optionnel)
+- **Transcription automatisée via PGX** : Transcription des épisodes via une station GPU dédiée sur le réseau local (optionnel)
 - **Backups automatisés** : Sauvegardes hebdomadaires de MongoDB avec anacron (adapté aux NAS/PC non 24/7)
 - **Rotation des logs** : Rotation automatique quotidienne des logs MongoDB
 - **Image MongoDB personnalisée** : Disponible sur ghcr.io avec backup et rotation intégrés
@@ -75,6 +76,7 @@ La documentation complète est disponible sur **[castorfou.github.io/docker-lmel
 - **[Configuration](https://castorfou.github.io/docker-lmelp/user/configuration/)** : Variables d'environnement et personnalisation
 - **[Intégration Calibre](https://castorfou.github.io/docker-lmelp/user/calibre-setup/)** : Accès à votre bibliothèque Calibre (optionnel)
 - **[Export vers Android](https://castorfou.github.io/docker-lmelp/user/export-android/)** : Synchronisation avec l'application mobile (optionnel)
+- **[Configuration PGX](https://castorfou.github.io/docker-lmelp/user/configuration/#variables-pgx-transcription-automatisee)** : Transcription automatisée via station GPU dédiée (optionnel)
 - **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
 - **[Rotation des logs MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-log-rotation/)** : Gestion automatique des logs
 - **[Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)** : Installation via interface graphique
@@ -130,7 +132,8 @@ docker-lmelp/
 │   ├── mongodb/            # Données MongoDB
 │   ├── backups/            # Backups MongoDB
 │   ├── audios/             # Fichiers audio LMELP
-│   └── logs/               # Logs applicatifs et MongoDB
+│   ├── logs/               # Logs applicatifs et MongoDB
+│   └── pgx-keys/           # Clé SSH dédiée à la transcription PGX (optionnel)
 └── docs/                   # Documentation MkDocs
     └── user/               # Documentation utilisateur
         ├── installation.md

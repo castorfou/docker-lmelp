@@ -31,7 +31,7 @@ cd docker-lmelp
 
 ### Étape 2 : Configuration des variables d'environnement
 
-**Note** : La structure des volumes (`data/mongodb/`, `data/backups/`, `data/audios/`, `data/logs/`) est créée automatiquement lors du clonage du repository grâce aux fichiers `.gitkeep`.
+**Note** : La structure des volumes (`data/mongodb/`, `data/backups/`, `data/audios/`, `data/logs/`, `data/pgx-keys/`) est créée automatiquement lors du clonage du repository grâce aux fichiers `.gitkeep`. `data/pgx-keys/` reçoit la clé SSH dédiée à la transcription PGX, générée automatiquement au premier démarrage du conteneur `lmelp` (voir [Variables PGX](configuration.md#variables-pgx-transcription-automatisee), optionnel).
 
 Copier le template de configuration et le personnaliser :
 
