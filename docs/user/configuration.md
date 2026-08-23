@@ -163,6 +163,23 @@ PGX_REMOTE_AUDIO_ROOT=/chemin/distant/audios
 PGX_REMOTE_TRANSCRIPTION_ROOT=/chemin/distant/transcriptions
 ```
 
+!!! warning "PGX_HOST doit être une IP directe, jamais un nom `.local` ou un nom court"
+    Un nom mDNS (`thinkstationpgx-d7ba.local`) ou un nom court (`pgx`) peut fonctionner
+    depuis un laptop et pourtant échouer silencieusement depuis un conteneur `lmelp`
+    déployé ailleurs (NAS, autre PC) — cas vécu sur déploiement NAS Synology (issue #60) :
+    la page **PGX** affichait *"Machine joignable — thinkstationpgx-d7ba.local ne répond
+    pas sur le port 22"* alors qu'un `ping` du même nom depuis le laptop fonctionnait.
+
+    Le check de connectivité utilise la résolution DNS standard du système (pas de
+    mDNS/avahi dans le conteneur), qui hérite du serveur DNS configuré sur la machine hôte
+    via `/etc/resolv.conf`. Ce résolveur diffère souvent entre un laptop (DNS du routeur
+    LAN, qui connaît les baux DHCP locaux et peut résoudre les noms `.local`) et un NAS
+    (DNS configuré dans DSM, souvent un résolveur public qui ignore ces noms). Un nom qui
+    fonctionne sur un poste de développement n'est donc pas garanti ailleurs.
+
+    **Toujours utiliser l'IP directe** de PGX pour `PGX_HOST`, idéalement une IP fixe
+    (réservation DHCP côté routeur) pour qu'elle ne change pas dans le temps.
+
 La clé SSH dédiée (distincte de toute clé personnelle) est générée automatiquement au
 premier démarrage du conteneur `lmelp` et persistée sur le volume `PGX_KEYS_PATH` (voir
 [Chemins des volumes](#chemins-des-volumes)) — jamais intégrée à l'image Docker. La page
