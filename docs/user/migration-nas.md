@@ -40,6 +40,17 @@ créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
     nouvelle clé serait régénérée à chaque recréation du conteneur, invalidant toute
     autorisation SSH déjà déployée côté PGX.
 
+!!! warning "`PGX_HOST` : un nom `.local` qui marche sur laptop peut échouer sur NAS (issue #60)"
+    Cas vécu : `PGX_HOST=thinkstationpgx-d7ba.local` fonctionnait depuis le laptop (page
+    PGX opérationnelle) mais échouait depuis le conteneur `lmelp` sur le NAS (*"Machine
+    joignable — thinkstationpgx-d7ba.local ne répond pas sur le port 22"*), alors qu'un
+    `ping` du même nom depuis le laptop répondait normalement. Cause : le conteneur résout
+    ce nom via le DNS système hérité de sa machine hôte — le routeur LAN côté laptop
+    connaît les baux DHCP locaux et peut résoudre les noms `.local`, alors que le DNS
+    configuré dans DSM sur le NAS ne les connaît généralement pas. Voir
+    [Variables PGX](configuration.md#variables-pgx-transcription-automatisee) : toujours
+    utiliser l'IP directe de PGX pour `PGX_HOST`, jamais un nom `.local` ou un nom court.
+
 !!! warning "`mongodb-logs` ne doit pas être un sous-dossier de `logs` (issue #51)"
     Le conteneur `lmelp` chowne récursivement son propre volume `LOG_PATH` à chaque
     démarrage (utilisateur non-root configurable) — si `mongodb-logs` était imbriqué
@@ -184,7 +195,24 @@ En naviguant sur chaque container :
 - lmelp : http://nas923:8501/
 - backoffice-lmelp : http://nas923:8081/
 
-## Étape 7 — Reverse proxy DSM (accès intranet)
+## Étape 7 — Autoriser la clé SSH PGX
+
+Pour utiliser la transcription automatisée via PGX (voir
+[Variables PGX](configuration.md#variables-pgx-transcription-automatisee)), le conteneur
+`lmelp` génère automatiquement une clé SSH dédiée à son premier démarrage — cette clé
+n'est cependant pas encore autorisée à se connecter sur PGX.
+
+1. Ouvrir la page **PGX** de l'interface Streamlit (`lmelp` → menu PGX) :
+   elle affiche la clé publique générée (contenu de `pgx_lmelp_ed25519.pub`) ainsi que la
+   commande exacte à exécuter sur PGX pour l'autoriser.
+2. Sur PGX, ajouter cette clé publique au `authorized_keys` du compte `PGX_USER` :
+   ```bash
+   echo '<contenu de la clé publique affichée par la page PGX>' >> ~/.ssh/authorized_keys
+   ```
+3. Rafraîchir la page PGX (ou cliquer sur **🔄 Relancer les vérifications**) : l'étape
+   **Authentification SSH (clé dédiée)** doit passer au vert.
+
+## Étape 8 — Reverse proxy DSM (accès intranet)
 
 Pour un accès via un nom d'hôte sur le réseau local, configurer le reverse proxy natif
 DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
@@ -228,7 +256,7 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
     - Port: 8081
 
 
-## Étape 8 — Valider le déploiement
+## Étape 9 — Valider le déploiement
 
 - [:white_check_mark:] Tous les containers sont `healthy` (`docker compose ps` ou Portainer)
 - [:white_check_mark:] L'application LMELP est accessible et affiche les données migrées
@@ -243,6 +271,10 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
          migration : la réponse doit être quasi instantanée (un vrai scraping Babelio
          est ralenti par `BABELIO_FAIR_SEC`, ~2s)
 - [:x:] (si utilisé) L'export Android fonctionne depuis le NAS — cf. limitations ci-dessous
+- [:white_check_mark:] (si utilisé) La transcription PGX fonctionne : page **PGX** de
+  l'interface Streamlit, toutes les étapes de diagnostic au vert (clé SSH autorisée à
+  l'étape 7, `PGX_HOST` configuré en IP directe — voir
+  [Variables PGX](configuration.md#variables-pgx-transcription-automatisee))
 
 ## Limitations connues
 

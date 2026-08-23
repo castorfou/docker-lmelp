@@ -111,6 +111,26 @@ risque à chaque nouveau volume ajouté à `docker-compose.yml`.
 
 Cette approche prend parfois plus de temps initialement, mais économise énormément de temps à long terme et améliore la maîtrise du système.
 
+### Un hostname réseau local peut résoudre différemment selon la machine hôte du conteneur
+
+**Piège découvert lors de l'issue #60** : `PGX_HOST=thinkstationpgx-d7ba.local` (nom mDNS
+d'une station du réseau local) fonctionnait depuis le conteneur `lmelp` sur un laptop, mais
+échouait depuis ce même conteneur déployé sur un NAS Synology (*"Machine joignable —
+thinkstationpgx-d7ba.local ne répond pas sur le port 22"*), alors qu'un `ping` du même nom
+depuis le laptop répondait normalement.
+
+**Cause** : la résolution d'un hostname dans un conteneur dépend du serveur DNS hérité de
+sa **machine hôte** (`/etc/resolv.conf`), pas d'un mécanisme propre à Docker ou au réseau
+bridge du compose file (identique sur les deux machines). Un routeur LAN connaît souvent
+les baux DHCP locaux et peut résoudre des noms `.local` ; le DNS configuré dans DSM sur un
+NAS est fréquemment un résolveur public qui les ignore. Un nom qui fonctionne sur un poste
+de développement n'est donc pas garanti ailleurs — y compris sur un autre déploiement de la
+même stack.
+
+**Règle** : toute variable d'environnement pointant vers une machine du réseau local
+(`PGX_HOST` et équivalents futurs) doit utiliser une **IP directe**, jamais un nom `.local`
+ou un nom court, quelle que soit la machine où fonctionne le déploiement de référence.
+
 ### Watchtower ne réapplique pas les changements de `docker-compose.yml`
 
 **Deuxième piège du même type** (identifié lors du diagnostic de l'issue #45 : cache Babelio qui
