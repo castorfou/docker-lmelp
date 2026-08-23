@@ -42,6 +42,7 @@ services:
       - ${AUDIO_PATH:-./data/audios}:/app/audios
       - ${BACKUP_PATH:-./data/backups}:/app/db-backup
       - ${LOG_PATH:-./data/logs}:/app/logs
+      - ${PGX_KEYS_PATH:-./data/pgx-keys}:/app/keys
     environment:
       # Utilisateur non-root (fichiers audios/db/logs créés avec cet UID/GID sur l'hôte)
       - PUID=${PUID:-1000}
@@ -56,6 +57,13 @@ services:
       - RSS_LMELP_URL=${RSS_LMELP_URL:-https://radiofrance-podcast.net/podcast09/rss_14007.xml}
       - AUDIO_BASE_PATH=/app/audios
       - LMELP_MODE=${LMELP_MODE:-web}
+
+      # PGX - Transcription automatisée (station GPU dédiée, optionnel)
+      - PGX_HOST=${PGX_HOST:-}
+      - PGX_USER=${PGX_USER:-}
+      - PGX_SSH_KEY_PATH=/app/keys/pgx_lmelp_ed25519
+      - PGX_REMOTE_AUDIO_ROOT=${PGX_REMOTE_AUDIO_ROOT:-}
+      - PGX_REMOTE_TRANSCRIPTION_ROOT=${PGX_REMOTE_TRANSCRIPTION_ROOT:-}
 
       # LLM API Keys - Azure OpenAI
       - AZURE_API_KEY=${AZURE_API_KEY:-}

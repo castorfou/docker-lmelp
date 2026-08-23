@@ -258,3 +258,95 @@ class TestLmelpExportLogVolumeConfiguration:
             "lmelp-export log path should default to a subdirectory of "
             "LOG_PATH (./data/logs/lmelp-export)"
         )
+
+
+class TestPgxConfiguration:
+    """Tests for PGX transcription environment variables on lmelp (issue #58).
+
+    The lmelp image (castorfou/lmelp) drives automated transcription via a
+    dedicated GPU station (PGX) reachable over SSH. Its entrypoint generates
+    and persists a dedicated SSH key under PGX_SSH_KEY_PATH (on the /app/keys
+    volume) at first startup -- see docs/user/transcription-pgx.md in the
+    lmelp repo.
+    """
+
+    def _get_lmelp(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["lmelp"]
+
+    def _get_env_list(self, service):
+        """Return service environment as a list of strings."""
+        env = service.get("environment", [])
+        if isinstance(env, dict):
+            return [f"{k}={v}" for k, v in env.items()]
+        return env
+
+    def test_lmelp_has_pgx_host_env(self):
+        """Verify that lmelp defines a PGX_HOST environment variable."""
+        service = self._get_lmelp()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_HOST" in env_keys, (
+            "lmelp should define PGX_HOST environment variable"
+        )
+
+    def test_lmelp_has_pgx_user_env(self):
+        """Verify that lmelp defines a PGX_USER environment variable."""
+        service = self._get_lmelp()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_USER" in env_keys, (
+            "lmelp should define PGX_USER environment variable"
+        )
+
+    def test_lmelp_has_pgx_ssh_key_path_env(self):
+        """Verify PGX_SSH_KEY_PATH is fixed to the persisted key location."""
+        service = self._get_lmelp()
+        env_list = self._get_env_list(service)
+        key_path_entry = next(
+            (e for e in env_list if e.startswith("PGX_SSH_KEY_PATH=")), None
+        )
+        assert key_path_entry is not None, "PGX_SSH_KEY_PATH should be defined"
+        assert (
+            key_path_entry
+            == "PGX_SSH_KEY_PATH=/app/keys/pgx_lmelp_ed25519"  # pragma: allowlist secret
+        ), "PGX_SSH_KEY_PATH should be fixed to /app/keys/pgx_lmelp_ed25519"
+
+    def test_lmelp_has_pgx_remote_audio_root_env(self):
+        """Verify that lmelp defines a PGX_REMOTE_AUDIO_ROOT environment variable."""
+        service = self._get_lmelp()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_REMOTE_AUDIO_ROOT" in env_keys, (
+            "lmelp should define PGX_REMOTE_AUDIO_ROOT environment variable"
+        )
+
+    def test_lmelp_has_pgx_remote_transcription_root_env(self):
+        """Verify that lmelp defines a PGX_REMOTE_TRANSCRIPTION_ROOT env variable."""
+        service = self._get_lmelp()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_REMOTE_TRANSCRIPTION_ROOT" in env_keys, (
+            "lmelp should define PGX_REMOTE_TRANSCRIPTION_ROOT environment variable"
+        )
+
+    def test_lmelp_has_pgx_keys_volume(self):
+        """Verify that lmelp mounts a persistent volume on /app/keys."""
+        service = self._get_lmelp()
+        volumes = service.get("volumes", [])
+        has_pgx_keys_volume = any(":/app/keys" in str(v) for v in volumes)
+        assert has_pgx_keys_volume, (
+            "lmelp should mount a volume for /app/keys so the dedicated PGX "
+            "SSH key survives container recreation"
+        )
+
+    def test_pgx_keys_volume_uses_env_variable(self):
+        """Verify that the PGX keys volume path is configurable via PGX_KEYS_PATH."""
+        service = self._get_lmelp()
+        volumes = service.get("volumes", [])
+        pgx_keys_volume = next((v for v in volumes if ":/app/keys" in str(v)), None)
+        assert pgx_keys_volume is not None, "PGX keys volume should exist"
+        assert "PGX_KEYS_PATH" in str(pgx_keys_volume), (
+            "PGX keys volume should be configurable via PGX_KEYS_PATH"
+        )

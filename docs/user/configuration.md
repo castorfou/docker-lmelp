@@ -149,6 +149,29 @@ SEARCH_ENGINE_ID=your-search-engine-id
 
 Voir le [guide Google Search](https://github.com/castorfou/lmelp/blob/main/docs/readme_google.md) pour plus de détails.
 
+### Variables PGX (transcription automatisée)
+
+lmelp peut transcrire automatiquement les épisodes audio en s'appuyant sur une station
+GPU dédiée sur le réseau local (PGX), accessible en SSH. Cette fonctionnalité est
+optionnelle : sans ces variables, l'application démarre normalement mais le pipeline de
+transcription PGX n'est pas utilisable.
+
+```bash
+PGX_HOST=192.168.x.x
+PGX_USER=votre_utilisateur_ssh
+PGX_REMOTE_AUDIO_ROOT=/chemin/distant/audios
+PGX_REMOTE_TRANSCRIPTION_ROOT=/chemin/distant/transcriptions
+```
+
+La clé SSH dédiée (distincte de toute clé personnelle) est générée automatiquement au
+premier démarrage du conteneur `lmelp` et persistée sur le volume `PGX_KEYS_PATH` (voir
+[Chemins des volumes](#chemins-des-volumes)) — jamais intégrée à l'image Docker. La page
+**PGX** de l'interface Streamlit affiche la clé publique générée et la commande à
+exécuter sur PGX pour l'autoriser, ainsi qu'un diagnostic de connexion.
+
+Guide complet (variables optionnelles, dépannage) :
+[transcription-pgx](https://castorfou.github.io/lmelp/user/transcription-pgx/).
+
 ## Variables Back-Office
 
 ### Backend API
@@ -244,6 +267,9 @@ MONGO_LOG_PATH=./data/mongodb-logs
 
 # Cache Babelio (persisté entre redéploiements)
 BABELIO_CACHE_PATH=./data/cache/babelio
+
+# Clé SSH dédiée PGX (persistée entre redéploiements)
+PGX_KEYS_PATH=./data/pgx-keys
 ```
 
 **Note sur les logs** :
@@ -270,12 +296,13 @@ AUDIO_PATH=/mnt/storage/lmelp/audios
 LOG_PATH=/mnt/storage/lmelp/logs
 MONGO_LOG_PATH=/mnt/storage/lmelp/mongodb-logs
 BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
+PGX_KEYS_PATH=/mnt/storage/lmelp/pgx-keys
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio,pgx-keys}
 chmod -R 755 /mnt/storage/lmelp
 ```
 

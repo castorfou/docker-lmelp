@@ -29,8 +29,16 @@ en tant qu'utilisateur simple (pour moi guillaume uid 1027)
 créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
 
 - `/docker/lmelp`
-- `/docker/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio}`
+- `/docker/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys}`
 ```
+
+!!! info "`pgx-keys` (optionnel, transcription PGX)"
+    Répertoire destiné à la clé SSH dédiée à la transcription automatisée via PGX
+    (générée et persistée automatiquement au premier démarrage du conteneur `lmelp`, voir
+    [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)). À créer
+    même si la fonctionnalité n'est pas utilisée immédiatement : sans ce volume, une
+    nouvelle clé serait régénérée à chaque recréation du conteneur, invalidant toute
+    autorisation SSH déjà déployée côté PGX.
 
 !!! warning "`mongodb-logs` ne doit pas être un sous-dossier de `logs` (issue #51)"
     Le conteneur `lmelp` chowne récursivement son propre volume `LOG_PATH` à chaque
@@ -243,10 +251,12 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
   SSH + `platform-tools`, ou conteneur ADB dédié). Le débogage sans fil Android peut être
   instable dans la durée ; réserver une IP DHCP fixe au téléphone est recommandé.
   À valider en conditions réelles sur le NAS. On a documenté cela dans [castorfou/lmelp-mobile#116 - Repenser la séparation mise à jour appli / mise à jour données pour l'export mobile](https://github.com/castorfou/lmelp-mobile/issues/116)
-- **Pipeline Whisper/PGX** : le script d'export utilise aujourd'hui un chemin local au
-  laptop (`~/git/docker-lmelp/data/audios/`) pour communiquer avec la machine de
-  transcription — cassera tel quel une fois `data/audios` déplacé sur le NAS (suivi dans
-  [castorfou/lmelp-mobile#117 - Adapter le pipeline de transcription Whisper/PGX à un hébergement NAS de docker-lmelp](https://github.com/castorfou/lmelp-mobile/issues/117)).
+- **Pipeline de transcription PGX** : la transcription automatisée ne dépend plus d'un
+  chemin local au laptop — elle passe désormais par SSH depuis le conteneur `lmelp`
+  lui-même (voir [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)),
+  ce qui fonctionne aussi bien depuis le NAS. Reste à valider en conditions réelles une
+  fois `lmelp` déployé sur le NAS (station PGX joignable sur le même réseau local que le
+  NAS, clé SSH dédiée à autoriser côté PGX).
 - **Contournement réseau Babelio non transférable au NAS** : c'est le conteneur
   `backend` (pas le navigateur) qui interroge Babelio pour enrichir les métadonnées.
   Quand Babelio bloque/rate-limite ou exige une IP spécifique, la solution actuelle est
