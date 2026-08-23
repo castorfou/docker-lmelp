@@ -67,6 +67,7 @@ docker compose ps
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web |
 | **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Export vers Android via ADB |
+| **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions de la clé SSH PGX |
 
 ## 📚 Documentation complète
 

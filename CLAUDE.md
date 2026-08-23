@@ -131,6 +131,31 @@ même stack.
 (`PGX_HOST` et équivalents futurs) doit utiliser une **IP directe**, jamais un nom `.local`
 ou un nom court, quelle que soit la machine où fonctionne le déploiement de référence.
 
+### Un service watchdog en sidecar peut corriger des permissions sans builder l'image
+
+**Généralisation du pattern watchdog (issue #61)** : la clé privée SSH dédiée à PGX est
+générée par lmelp avec les droits corrects (`600`, confirmé dans le code —
+`ssh-keygen` les fixe explicitement, indépendamment de l'umask) mais un mécanisme externe
+au conteneur — très probablement la synchronisation ACL Btrfs/Windows ACL de Synology sur
+le dossier partagé NAS — a été observé la réinitialisant à `755` après coup (confirmé par
+un écart entre `mtime` et `ctime` du fichier : quelque chose modifie ses métadonnées sans
+réécrire son contenu).
+
+Contrairement au cas MongoDB (`CHOWN_WATCHDOG_INTERVAL`, issue #51) où le watchdog est
+intégré à l'entrypoint d'une image **buildée par ce repo** (`mongodb.Dockerfile`),
+`docker-lmelp` ne build pas l'image `lmelp` (pull direct depuis `ghcr.io`) — impossible d'y
+injecter un correctif sans remplacer entièrement son entrypoint (fragile, casserait à
+chaque mise à jour d'image). Solution : un **service sidecar minimaliste** dans
+`docker-compose.yml` (image légère sans build, ex. `alpine`), qui monte le même volume et
+boucle la correction (`chmod`/`chown`) à intervalle régulier — reproduit le bénéfice du
+watchdog sans dépendre du contrôle de l'image applicative.
+
+**Règle** : quand un mécanisme externe (NAS, ACL, autre service) réinitialise
+périodiquement des permissions ou un ownership sur un volume persistant, et qu'on ne
+contrôle pas l'image qui écrit dans ce volume, un sidecar watchdog dans
+`docker-compose.yml` est le correctif à privilégier — plus robuste qu'une correction
+manuelle ponctuelle, sans dépendre de la cause exacte côté NAS.
+
 ### Watchtower ne réapplique pas les changements de `docker-compose.yml`
 
 **Deuxième piège du même type** (identifié lors du diagnostic de l'issue #45 : cache Babelio qui

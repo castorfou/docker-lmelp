@@ -186,6 +186,20 @@ premier démarrage du conteneur `lmelp` et persistée sur le volume `PGX_KEYS_PA
 **PGX** de l'interface Streamlit affiche la clé publique générée et la commande à
 exécuter sur PGX pour l'autoriser, ainsi qu'un diagnostic de connexion.
 
+!!! warning "Watchdog de permissions sur la clé privée (issue #61)"
+    La clé privée est générée avec les droits corrects (`600`, lecture/écriture par son
+    seul propriétaire) — mais sur certains NAS, un mécanisme externe au conteneur (très
+    probablement la synchronisation ACL Btrfs/Windows ACL de Synology sur le dossier
+    partagé) a été observé réinitialisant ces droits à `755` après coup, exposant la clé
+    en lecture à d'autres utilisateurs du NAS.
+
+    Un service `pgx-keys-watchdog` (image `alpine`, sans build) tourne en permanence à
+    côté de `lmelp` : il réapplique `600` sur la clé privée (et `644` sur la clé
+    publique) toutes les `PGX_KEYS_WATCHDOG_INTERVAL` secondes (défaut `300`, à ajuster
+    seulement en cas de besoin particulier). Ce watchdog suit le même principe que celui
+    déjà utilisé pour les logs MongoDB (`CHOWN_WATCHDOG_INTERVAL`, issue #51) : corriger
+    le symptôme de façon fiable sans dépendre de la cause exacte côté NAS.
+
 Guide complet (variables optionnelles, dépannage) :
 [transcription-pgx](https://castorfou.github.io/lmelp/user/transcription-pgx/).
 
