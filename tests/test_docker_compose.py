@@ -352,6 +352,96 @@ class TestPgxConfiguration:
         )
 
 
+class TestBackendAudioSyncConfiguration:
+    """Tests for the backend audio volume + RSS sync env vars (issue #64).
+
+    back-office-lmelp#295 adds `POST /api/rss/sync`, which downloads audio
+    files for new "livres" episodes. The backend service needs the same
+    AUDIO_PATH volume as lmelp (shared host directory, no duplication) plus
+    the env vars read by back-office-lmelp's settings module.
+    """
+
+    def _get_backend(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["backend"]
+
+    def _get_env_list(self, backend):
+        """Return backend environment as a list of strings."""
+        env = backend.get("environment", [])
+        if isinstance(env, dict):
+            return [f"{k}={v}" for k, v in env.items()]
+        return env
+
+    def test_backend_has_audio_volume(self):
+        """Verify that backend mounts a volume for /app/audios."""
+        backend = self._get_backend()
+        volumes = backend.get("volumes", [])
+        has_audio_volume = any(":/app/audios" in str(v) for v in volumes)
+        assert has_audio_volume, "backend should mount a volume for /app/audios"
+
+    def test_audio_volume_uses_env_variable(self):
+        """Verify that the audio volume path is configurable via AUDIO_PATH,
+        the same host variable used by the lmelp service (shared directory)."""
+        backend = self._get_backend()
+        volumes = backend.get("volumes", [])
+        audio_volume = next((v for v in volumes if ":/app/audios" in str(v)), None)
+        assert audio_volume is not None, "Audio volume should exist"
+        assert "AUDIO_PATH" in str(audio_volume), (
+            "Audio volume should be configurable via AUDIO_PATH"
+        )
+
+    def test_backend_has_audio_storage_path_env(self):
+        """Verify AUDIO_STORAGE_PATH is fixed to the mounted audio path."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        entry = next((e for e in env_list if e.startswith("AUDIO_STORAGE_PATH=")), None)
+        assert entry is not None, "AUDIO_STORAGE_PATH should be defined"
+        assert entry == "AUDIO_STORAGE_PATH=/app/audios", (
+            "AUDIO_STORAGE_PATH should be fixed to /app/audios"
+        )
+
+    def test_backend_has_rss_masque_et_la_plume_url_env(self):
+        """Verify that backend defines RSS_MASQUE_ET_LA_PLUME_URL with a default."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        entry = next(
+            (e for e in env_list if e.startswith("RSS_MASQUE_ET_LA_PLUME_URL=")), None
+        )
+        assert entry is not None, "RSS_MASQUE_ET_LA_PLUME_URL should be defined"
+        assert "https://radiofrance-podcast.net/podcast09/rss_14007.xml" in entry, (
+            "RSS_MASQUE_ET_LA_PLUME_URL should default to the France Inter RSS feed"
+        )
+
+    def test_backend_has_rss_duree_mini_minutes_env(self):
+        """Verify that backend defines RSS_DUREE_MINI_MINUTES with default 15."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        entry = next(
+            (e for e in env_list if e.startswith("RSS_DUREE_MINI_MINUTES=")), None
+        )
+        assert entry is not None, "RSS_DUREE_MINI_MINUTES should be defined"
+        assert "15" in entry, "RSS_DUREE_MINI_MINUTES should default to 15"
+
+    def test_backend_has_ntfy_server_url_env(self):
+        """Verify that backend defines NTFY_SERVER_URL environment variable."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "NTFY_SERVER_URL" in env_keys, (
+            "backend should define NTFY_SERVER_URL environment variable"
+        )
+
+    def test_backend_has_ntfy_topic_env(self):
+        """Verify that backend defines NTFY_TOPIC environment variable."""
+        backend = self._get_backend()
+        env_list = self._get_env_list(backend)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "NTFY_TOPIC" in env_keys, (
+            "backend should define NTFY_TOPIC environment variable"
+        )
+
+
 class TestPgxKeysWatchdogConfiguration:
     """Tests for the PGX SSH key permissions watchdog (issue #61).
 

@@ -276,6 +276,49 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
   l'étape 7, `PGX_HOST` configuré en IP directe — voir
   [Variables PGX](configuration.md#variables-pgx-transcription-automatisee))
 
+## Étape 10 — Automatiser la synchronisation RSS via Automatisch
+
+Le backend expose `POST /api/rss/sync`, qui synchronise le flux RSS "Le Masque et la
+Plume" et télécharge le fichier audio de chaque nouvel épisode "livres" détecté. Cette
+étape ajoute une action "HTTP Request" dans un workflow Automatisch (hébergé sur le même
+NAS) pour déclencher cette synchronisation automatiquement, sans intervention manuelle.
+
+Dans le workflow Automatisch concerné, ajouter une nouvelle étape :
+
+| Champ           | Valeur                                                                                                                                                                                                                |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App             | `HTTP Request`                                                                                                                                                                                                        |
+| Event           | `Custom request`                                                                                                                                                                                                      |
+| Method          | `POST`                                                                                                                                                                                                                |
+| URL             | `https://lmelp-bo.ascot63.synology.me/api/rss/sync`                                                                                                                                                                   |
+| Headers         | `Content-Type: application/json`                                                                                                                                                                                      |
+| Data (raw JSON) | `{"trigger": "api"}` (optionnel — `"api"` est déjà la valeur par défaut côté serveur si le champ est omis, mais l'expliciter clarifie l'origine du déclenchement dans l'historique consultable sur `/rss-monitoring`) |
+
+### Réponse attendue
+
+```json
+{
+  "started_at": "...",
+  "finished_at": "...",
+  "trigger": "api",
+  "status": "success",
+  "feed_url": "...",
+  "episodes": [...],
+  "notification_sent": false,
+  "error_message": null
+}
+```
+
+Un `status: "success"` avec `episodes: []` est normal si aucun nouvel épisode n'est
+disponible depuis le dernier connu en base (déduplication automatique). Chaque épisode
+traité indique un `outcome` : `downloaded`, `skipped_not_book`, `already_exists`,
+`skipped_too_short` ou `error`.
+
+Cette étape Automatisch peut se substituer ou compléter le clic manuel sur "🔄 Rafraîchir
+Episodes" de la page `/rss-monitoring` de back-office-lmelp — l'historique des
+synchronisations, qu'elles soient déclenchées manuellement ou via Automatisch, reste
+consultable sur cette même page.
+
 ## Limitations connues
 
 - **Export Android (ADB)** : `lmelp-export` se connecte à un serveur ADB en TCP — cela
