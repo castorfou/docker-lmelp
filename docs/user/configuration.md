@@ -266,6 +266,34 @@ Le chemin du cache sur l'hôte est configuré via `BABELIO_CACHE_PATH` (voir sec
       docker compose -p <nom-du-projet> up -d --force-recreate backend
       ```
 
+### Synchronisation RSS automatisée
+
+Le backend expose `POST /api/rss/sync`, qui synchronise le flux RSS "Le Masque et la
+Plume" et télécharge le fichier audio de chaque nouvel épisode "livres". Cet endpoint
+peut être déclenché manuellement (bouton "Rafraîchir Episodes" sur la page
+`/rss-monitoring`) ou automatiquement via un workflow Automatisch (voir
+[Étape 10 — Automatiser la synchronisation RSS](migration-nas.md#etape-10-automatiser-la-synchronisation-rss-via-automatisch)).
+
+```bash
+# Chemin interne au conteneur backend où stocker l'audio téléchargé (valeur fixe,
+# doit correspondre au point de montage du volume AUDIO_PATH)
+AUDIO_STORAGE_PATH=/app/audios
+
+# URL du flux RSS France Inter
+RSS_MASQUE_ET_LA_PLUME_URL=https://radiofrance-podcast.net/podcast09/rss_14007.xml
+
+# Seuil de durée minimale (minutes) pour retenir un épisode
+RSS_DUREE_MINI_MINUTES=15
+
+# Notifications ntfy.sh de fin de synchronisation (optionnel, no-op si vide)
+NTFY_SERVER_URL=
+NTFY_TOPIC=
+```
+
+Le backend monte le même volume `AUDIO_PATH` que `lmelp` (voir
+[Chemins des volumes](#chemins-des-volumes)), pour partager les fichiers audio déjà
+téléchargés sans les dupliquer.
+
 ### Frontend
 
 ```bash
@@ -287,7 +315,7 @@ MONGO_DATA_PATH=./data/mongodb
 # Backups MongoDB
 BACKUP_PATH=./data/backups
 
-# Fichiers audio LMELP
+# Fichiers audio LMELP (partagé entre les services lmelp et backend)
 AUDIO_PATH=./data/audios
 
 # Logs applicatifs LMELP (pour logs de l'app Streamlit)

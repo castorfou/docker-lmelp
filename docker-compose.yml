@@ -123,6 +123,7 @@ services:
     volumes:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
       - ${BABELIO_CACHE_PATH:-./data/cache/babelio}:/cache/babelio
+      - ${AUDIO_PATH:-./data/audios}:/app/audios
     environment:
       # Utilisateur non-root (fichiers de cache Babelio créés avec cet UID/GID sur l'hôte)
       - PUID=${PUID:-1000}
@@ -139,6 +140,13 @@ services:
       - AZURE_DEPLOYMENT_NAME=${AZURE_DEPLOYMENT_NAME:-}
       # Calibre integration (optionnel)
       - CALIBRE_VIRTUAL_LIBRARY_TAG=${CALIBRE_VIRTUAL_LIBRARY_TAG:-}
+      # Synchronisation RSS automatisée (POST /api/rss/sync, cf. back-office-lmelp#295)
+      # Volume audio partagé avec lmelp (même AUDIO_PATH hôte, évite la duplication)
+      - AUDIO_STORAGE_PATH=/app/audios
+      - RSS_MASQUE_ET_LA_PLUME_URL=${RSS_MASQUE_ET_LA_PLUME_URL:-https://radiofrance-podcast.net/podcast09/rss_14007.xml}
+      - RSS_DUREE_MINI_MINUTES=${RSS_DUREE_MINI_MINUTES:-15}
+      - NTFY_SERVER_URL=${NTFY_SERVER_URL:-}
+      - NTFY_TOPIC=${NTFY_TOPIC:-}
       # Cache Babelio (persisté entre redéploiements)
       - BABELIO_CACHE_DIR=/cache/babelio
       - BABELIO_FAIR_SEC=${BABELIO_FAIR_SEC:-2.0}
