@@ -166,6 +166,45 @@ volume ou une variable d'environnement dans le compose file, un redéploiement e
 stack est nécessaire (Portainer : "Update the stack" ; CLI : `docker compose up -d
 --force-recreate`), sans quoi le conteneur continue de tourner avec l'ancienne configuration.
 
+### La modale Portainer "Edit Git settings" sauvegarde sans redéployer
+
+**Troisième piège du même type** (identifié lors de la validation NAS de l'issue #64 :
+des variables `NTFY_SERVER_URL`/`NTFY_TOPIC` correctement renseignées côté Portainer,
+mais toujours vides dans le conteneur après un "redéploiement"). Dans l'interface
+Portainer d'une stack de type **Repository (Git)**, la fenêtre "Edit Git settings" (roue
+dentée à côté du nom de la stack) permet d'éditer la config du dépôt et les variables
+d'environnement, avec son propre bouton **"Save settings"** — mais ce bouton se contente
+de persister la configuration côté Portainer, il **ne recrée aucun conteneur**. Seul le
+vrai bouton de redéploiement sur la page principale de la stack (**"Update the stack"** /
+"Pull and redeploy") déclenche une recréation effective.
+
+**Règle** : après toute modification de variables d'environnement ou de paramètres Git
+dans cette modale, vérifier systématiquement que le redéploiement a bien eu lieu en
+contrôlant la colonne/le champ `Created` des conteneurs concernés (`docker inspect
+<container> --format 'Created: {{.Created}}'` ou la colonne "Created" de la liste des
+conteneurs dans Portainer) — une date inchangée signifie qu'aucune recréation n'a
+réellement eu lieu, quelle que soit l'apparence de succès de la sauvegarde.
+
+### Un conteneur tiers (ex: Automatisch) ne peut pas joindre la stack via `localhost` ou le hostname court du NAS
+
+**Généralisation de la règle `PGX_HOST`** (voir plus haut), rencontrée lors de la
+configuration d'un workflow Automatisch appelant `POST /api/rss/sync` sur `backend`
+(issue #64) : `localhost`/`127.0.0.1` à l'intérieur d'un conteneur pointe vers son
+**propre** network namespace, jamais vers l'hôte Docker ni vers un autre conteneur —
+même quand les deux tournent sur la même machine physique. Le hostname court du NAS
+(ex. `nasds923`, visible via `hostname` en SSH sur le NAS lui-même) échoue pour la même
+raison que les noms `.local` : il n'est connu que du système qui porte ce nom, pas du
+résolveur DNS utilisé par un conteneur tiers.
+
+**Règle** : toute intégration externe (Automatisch, ou tout autre outil déployé dans son
+propre conteneur/sa propre stack) qui doit appeler un port exposé par `docker-lmelp`
+(ex. `backend:8000`) doit utiliser l'**IP LAN numérique** du NAS, jamais `localhost`, un
+hostname court, ni un nom `.local`. Alternative plus robuste si l'outil tiers le permet :
+déclarer `extra_hosts: - "host.docker.internal:host-gateway"` dans **sa propre**
+définition de conteneur (mécanisme Docker déjà utilisé dans ce repo pour `ADB_HOST` sur
+le service `lmelp-export`) — mais cela nécessite d'avoir la main sur la configuration du
+conteneur tiers, ce qui n'est pas toujours le cas.
+
 ### Installation
 1. Ouvrir le projet dans VS Code
 2. Accepter la proposition d'ouvrir dans un Dev Container
