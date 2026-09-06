@@ -290,7 +290,7 @@ Dans le workflow Automatisch concerné, ajouter une nouvelle étape :
 | App             | `HTTP Request`                                                                                                                                                                                                        |
 | Event           | `Custom request`                                                                                                                                                                                                      |
 | Method          | `POST`                                                                                                                                                                                                                |
-| URL             | `https://lmelp-bo.ascot63.synology.me/api/rss/sync`                                                                                                                                                                   |
+| URL             | `http://192.168.50.207:8000/api/rss/sync`                                                                                                                                                                             |
 | Headers         | `Content-Type: application/json`                                                                                                                                                                                      |
 | Data (raw JSON) | `{"trigger": "api"}` (optionnel — `"api"` est déjà la valeur par défaut côté serveur si le champ est omis, mais l'expliciter clarifie l'origine du déclenchement dans l'historique consultable sur `/rss-monitoring`) |
 
