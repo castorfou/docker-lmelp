@@ -321,6 +321,131 @@ Episodes" de la page `/rss-monitoring` de back-office-lmelp — l'historique des
 synchronisations, qu'elles soient déclenchées manuellement ou via Automatisch, reste
 consultable sur cette même page.
 
+## Étape 11 — Automatiser la transcription PGX via Automatisch
+
+### Section Overview
+
+Sur le modèle de l'étape 10 (synchronisation RSS), la transcription PGX peut
+être déclenchée automatiquement par Automatisch via l'endpoint
+`POST /api/pgx/transcription/start`. Contrairement à `/api/rss/sync`
+(synchrone, faible volume), cet endpoint est **fire-and-forget** :
+Automatisch appelle l'endpoint **une seule fois** (à sa fréquence propre,
+par exemple une fois par jour), et le backend prend en charge tout le reste
+— y compris un **retry automatique toutes les heures pendant 24h** si PGX
+est éteinte au moment de l'appel. Pas besoin de programmer un cron répété
+côté Automatisch.
+
+### Configuration Details
+
+**Ajout d'une étape dans le workflow Automatisch :**
+
+| Champ           | Valeur                                                   |
+| --------------- | -------------------------------------------------------- |
+| App             | `HTTP Request`                                           |
+| Event           | `Custom request`                                         |
+| Method          | `POST`                                                   |
+| URL             | `http://192.168.50.207:8000/api/pgx/transcription/start` |
+| Headers         | `Content-Type: application/json`                         |
+| Data (raw JSON) | `{"trigger": "api"}`                                     |
+
+**Important** : ne pas omettre `"trigger": "api"` — sans ce paramètre (ou
+avec `"trigger": "manual"`), le comportement reste celui du bouton UI :
+échec immédiat et définitif si PGX est injoignable, sans retry.
+
+### Expected Response
+
+Réponse immédiate (l'endpoint ne bloque jamais jusqu'à la fin du
+traitement, qui peut durer plusieurs minutes à plusieurs heures selon le
+nombre d'épisodes et la disponibilité de PGX) :
+
+```json
+{"status": "started", "episode_count": 2}
+```
+
+Autres réponses possibles :
+
+```json
+{"status": "nothing_to_do"}
+```
+Aucun épisode en attente de transcription — normal si tout est déjà à jour.
+
+```json
+{"status": "already_running"}
+```
+Un cycle est déjà en cours (traitement actif, ou retry en attente d'une
+prochaine tentative horaire) — évite les doublons si Automatisch se
+redéclenche pendant qu'un cycle précédent tourne encore.
+
+### Suivre le résultat
+
+Le déclenchement étant asynchrone, consultez l'historique pour connaître
+l'issue réelle du cycle :
+
+```bash
+curl http://192.168.50.207:8000/api/pgx/logs | jq
+```
+
+Chaque document représente un cycle complet (du déclenchement au succès ou
+à l'abandon) :
+
+```json
+{
+  "_id": "...",
+  "started_at": "...",
+  "finished_at": "...",
+  "trigger": "api",
+  "status": "success",
+  "episode_ids": ["..."],
+  "episodes": [
+    {"episode_id": "...", "titre": "...", "success": true, "error": null}
+  ],
+  "retry_attempts": [],
+  "notification_sent": true,
+  "error_message": null
+}
+```
+
+`status` peut valoir :
+
+- `success` — tous les épisodes traités avec succès.
+- `partial_error` — au moins un épisode a échoué, cycle terminé quand même.
+- `error` — erreur inattendue ayant interrompu tout le pipeline.
+- `pgx_unreachable_abandoned` — PGX est restée injoignable au-delà du
+  délai maximal de retry (24h par défaut) ; `episodes` est vide dans ce
+  cas, mais `episode_ids` conserve la liste des épisodes qui attendaient
+  d'être traités, et `retry_attempts` détaille chaque tentative horaire.
+
+L'historique complet (y compris les cycles déclenchés manuellement depuis
+`/transcription-pgx`) est aussi consultable dans le back-office, section
+"📋 Historique des transcriptions" de cette page.
+
+### Notifications ntfy.sh
+
+Si `NTFY_SERVER_URL`/`NTFY_TOPIC` sont configurés (mêmes variables que pour
+RSS), deux notifications sont envoyées automatiquement, sans action
+supplémentaire côté Automatisch :
+
+- **Dès le premier échec de joignabilité** déclenchant le retry — pour
+  savoir qu'il faut allumer PGX, sans attendre 24h en silence.
+- **En fin de cycle** — succès, erreur partielle/totale, ou abandon
+  définitif après épuisement du délai de retry.
+
+Aucune notification n'est envoyée à chaque tentative de retry individuelle
+(pas de bruit répété toutes les heures).
+
+### Key Notes
+
+- Cette étape Automatisch peut remplacer ou compléter le bouton
+  "▶️ Lancer la transcription" du back-office `/transcription-pgx`.
+- Le retry (jusqu'à 24 fois par défaut, à raison d'une tentative par
+  heure) est entièrement géré côté backend — Automatisch n'a pas besoin de
+  relancer l'appel tant que le cycle précédent n'est pas terminé.
+- Les délais de retry sont configurables via `PGX_TRANSCRIPTION_RETRY_INTERVAL_HOURS`
+  (défaut `1`) et `PGX_TRANSCRIPTION_RETRY_MAX_HOURS` (défaut `24`).
+- Un appel Automatisch pendant qu'un cycle est déjà en cours (traitement
+  actif ou retry en attente) renvoie simplement `{"status":
+  "already_running"}` — sans effet indésirable, sans doublon.
+
 ## Limitations connues
 
 - **Export Android (ADB)** : `lmelp-export` se connecte à un serveur ADB en TCP — cela
@@ -357,7 +482,7 @@ consultable sur cette même page.
 | [castorfou/docker-lmelp#48](https://github.com/castorfou/docker-lmelp/issues/48)             | Anacron mongo écrit les backups/logs en root                            | ✅ Fermée  |
 | [castorfou/back-office-lmelp#258](https://github.com/castorfou/back-office-lmelp/issues/258) | Conteneur backend tourne en root (cache Babelio)                        | ✅ Fermée  |
 | [castorfou/back-office-lmelp#259](https://github.com/castorfou/back-office-lmelp/issues/259) | Support proxy HTTP sortant pour Babelio                                 | 🔵 Ouverte |
-| [castorfou/lmelp#105](https://github.com/castorfou/lmelp/issues/105)                         | Conteneur lmelp tourne en root (audios/transcriptions)                  | ✅ Fermée  |
+| [castorfou/lmelp#105](https://github.com/castorfou/lmelp/issues/105)                         | Conteneur lmeSlp tourne en root (audios/transcriptions)                 | ✅ Fermée  |
 | [castorfou/lmelp-mobile#116](https://github.com/castorfou/lmelp-mobile/issues/116)           | Repenser séparation appli/données + ADB NAS                             | 🔵 Ouverte |
 | [castorfou/lmelp-mobile#117](https://github.com/castorfou/lmelp-mobile/issues/117)           | Adapter le pipeline Whisper/PGX au NAS                                  | 🔵 Ouverte |
 | [castorfou/back-office-lmelp#261](https://github.com/castorfou/back-office-lmelp/issues/261) | Intégration Calibre échoue en lecture seule sur bibliothèque WAL active | ✅ Fermée  |
