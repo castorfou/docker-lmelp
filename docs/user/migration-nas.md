@@ -29,21 +29,23 @@ en tant qu'utilisateur simple (pour moi guillaume uid 1027)
 créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
 
 - `/docker/lmelp`
-- `/docker/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys}`
+- `/docker/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys-backend}`
 ```
 
-!!! info "`pgx-keys` (optionnel, transcription PGX)"
-    Répertoire destiné à la clé SSH dédiée à la transcription automatisée via PGX
-    (générée et persistée automatiquement au premier démarrage du conteneur `lmelp`, voir
+!!! info "`pgx-keys-backend` (optionnel, transcription PGX)"
+    Répertoire destiné à la clé SSH dédiée à la transcription automatisée via PGX,
+    pilotée depuis le back-office (page `/transcription-pgx`, générée et persistée
+    automatiquement au premier démarrage du conteneur `backend`, voir
     [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)). À créer
     même si la fonctionnalité n'est pas utilisée immédiatement : sans ce volume, une
     nouvelle clé serait régénérée à chaque recréation du conteneur, invalidant toute
-    autorisation SSH déjà déployée côté PGX.
+    autorisation SSH déjà déployée côté PGX. Le répertoire `pgx-keys` (historique, clé
+    dédiée à `lmelp`) reste optionnel — la transcription ne passe plus par ce service.
 
 !!! warning "`PGX_HOST` : un nom `.local` qui marche sur laptop peut échouer sur NAS (issue #60)"
-    Cas vécu : `PGX_HOST=thinkstationpgx-d7ba.local` fonctionnait depuis le laptop (page
-    PGX opérationnelle) mais échouait depuis le conteneur `lmelp` sur le NAS (*"Machine
-    joignable — thinkstationpgx-d7ba.local ne répond pas sur le port 22"*), alors qu'un
+    Cas vécu : `PGX_HOST=thinkstationpgx-d7ba.local` fonctionnait depuis le laptop mais
+    échouait depuis le conteneur `backend` sur le NAS (*"Machine joignable —
+    thinkstationpgx-d7ba.local ne répond pas sur le port 22"*), alors qu'un
     `ping` du même nom depuis le laptop répondait normalement. Cause : le conteneur résout
     ce nom via le DNS système hérité de sa machine hôte — le routeur LAN côté laptop
     connaît les baux DHCP locaux et peut résoudre les noms `.local`, alors que le DNS
@@ -199,17 +201,17 @@ En naviguant sur chaque container :
 
 Pour utiliser la transcription automatisée via PGX (voir
 [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)), le conteneur
-`lmelp` génère automatiquement une clé SSH dédiée à son premier démarrage — cette clé
+`backend` génère automatiquement une clé SSH dédiée à son premier démarrage — cette clé
 n'est cependant pas encore autorisée à se connecter sur PGX.
 
-1. Ouvrir la page **PGX** de l'interface Streamlit (`lmelp` → menu PGX) :
-   elle affiche la clé publique générée (contenu de `pgx_lmelp_ed25519.pub`) ainsi que la
-   commande exacte à exécuter sur PGX pour l'autoriser.
+1. Ouvrir la page `/transcription-pgx` du back-office : elle affiche la clé publique
+   générée (contenu de `pgx_ed25519.pub`) ainsi que la commande exacte à exécuter sur PGX
+   pour l'autoriser (checklist de diagnostic, back-office-lmelp#302).
 2. Sur PGX, ajouter cette clé publique au `authorized_keys` du compte `PGX_USER` :
    ```bash
-   echo '<contenu de la clé publique affichée par la page PGX>' >> ~/.ssh/authorized_keys
+   echo '<contenu de la clé publique affichée par /transcription-pgx>' >> ~/.ssh/authorized_keys
    ```
-3. Rafraîchir la page PGX (ou cliquer sur **🔄 Relancer les vérifications**) : l'étape
+3. Rafraîchir la page `/transcription-pgx` (ou relancer les vérifications) : l'étape
    **Authentification SSH (clé dédiée)** doit passer au vert.
 
 ## Étape 8 — Reverse proxy DSM (accès intranet)
@@ -271,9 +273,9 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
          migration : la réponse doit être quasi instantanée (un vrai scraping Babelio
          est ralenti par `BABELIO_FAIR_SEC`, ~2s)
 - [:x:] (si utilisé) L'export Android fonctionne depuis le NAS — cf. limitations ci-dessous
-- [:white_check_mark:] (si utilisé) La transcription PGX fonctionne : page **PGX** de
-  l'interface Streamlit, toutes les étapes de diagnostic au vert (clé SSH autorisée à
-  l'étape 7, `PGX_HOST` configuré en IP directe — voir
+- [:white_check_mark:] (si utilisé) La transcription PGX fonctionne : page
+  `/transcription-pgx` du back-office, toutes les étapes de diagnostic au vert (clé SSH
+  autorisée à l'étape 7, `PGX_HOST` configuré en IP directe — voir
   [Variables PGX](configuration.md#variables-pgx-transcription-automatisee))
 
 ## Étape 10 — Automatiser la synchronisation RSS via Automatisch
@@ -327,10 +329,11 @@ consultable sur cette même page.
   instable dans la durée ; réserver une IP DHCP fixe au téléphone est recommandé.
   À valider en conditions réelles sur le NAS. On a documenté cela dans [castorfou/lmelp-mobile#116 - Repenser la séparation mise à jour appli / mise à jour données pour l'export mobile](https://github.com/castorfou/lmelp-mobile/issues/116)
 - **Pipeline de transcription PGX** : la transcription automatisée ne dépend plus d'un
-  chemin local au laptop — elle passe désormais par SSH depuis le conteneur `lmelp`
-  lui-même (voir [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)),
-  ce qui fonctionne aussi bien depuis le NAS. Reste à valider en conditions réelles une
-  fois `lmelp` déployé sur le NAS (station PGX joignable sur le même réseau local que le
+  chemin local au laptop — elle passe désormais par SSH depuis le conteneur `backend`
+  lui-même, pilotée depuis la page `/transcription-pgx` du back-office (voir
+  [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)), ce qui
+  fonctionne aussi bien depuis le NAS. Reste à valider en conditions réelles une fois le
+  `backend` déployé sur le NAS (station PGX joignable sur le même réseau local que le
   NAS, clé SSH dédiée à autoriser côté PGX).
 - **Contournement réseau Babelio non transférable au NAS** : c'est le conteneur
   `backend` (pas le navigateur) qui interroge Babelio pour enrichir les métadonnées.

@@ -67,7 +67,7 @@ docker compose ps
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web |
 | **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Export vers Android via ADB |
-| **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions de la clé SSH PGX |
+| **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions des clés SSH PGX (lmelp et backend) |
 
 ## 📚 Documentation complète
 
@@ -134,7 +134,8 @@ docker-lmelp/
 │   ├── backups/            # Backups MongoDB
 │   ├── audios/             # Fichiers audio LMELP
 │   ├── logs/               # Logs applicatifs et MongoDB
-│   └── pgx-keys/           # Clé SSH dédiée à la transcription PGX (optionnel)
+│   ├── pgx-keys/           # Clé SSH PGX historique (lmelp, optionnel)
+│   └── pgx-keys-backend/   # Clé SSH dédiée à la transcription PGX (backend, optionnel)
 └── docs/                   # Documentation MkDocs
     └── user/               # Documentation utilisateur
         ├── installation.md

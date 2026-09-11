@@ -87,18 +87,24 @@ services:
       - lmelp-network
 
   # PGX SSH key permissions watchdog — auto-répare les droits de la clé privée si un
-  # mécanisme externe (ex: synchro ACL Synology) les réinitialise (issue #61)
+  # mécanisme externe (ex: synchro ACL Synology) les réinitialise (issue #61).
+  # Couvre à la fois la clé dédiée lmelp (pgx_lmelp_ed25519) et la clé dédiée
+  # backend (pgx_ed25519, issue #66) — un seul watchdog étendu plutôt qu'un
+  # second service dupliqué.
   pgx-keys-watchdog:
     image: alpine:latest
     container_name: lmelp-pgx-keys-watchdog
     restart: unless-stopped
     volumes:
       - ${PGX_KEYS_PATH:-./data/pgx-keys}:/keys
+      - ${PGX_BACKEND_KEYS_PATH:-./data/pgx-keys-backend}:/keys-backend
     command: >
       sh -c '
       while true; do
         chmod 600 /keys/pgx_lmelp_ed25519 2>/dev/null;
         chmod 644 /keys/pgx_lmelp_ed25519.pub 2>/dev/null;
+        chmod 600 /keys-backend/pgx_ed25519 2>/dev/null;
+        chmod 644 /keys-backend/pgx_ed25519.pub 2>/dev/null;
         sleep "${PGX_KEYS_WATCHDOG_INTERVAL:-300}";
       done'
     labels:
@@ -124,6 +130,7 @@ services:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
       - ${BABELIO_CACHE_PATH:-./data/cache/babelio}:/cache/babelio
       - ${AUDIO_PATH:-./data/audios}:/app/audios
+      - ${PGX_BACKEND_KEYS_PATH:-./data/pgx-keys-backend}:/app/keys
     environment:
       # Utilisateur non-root (fichiers de cache Babelio créés avec cet UID/GID sur l'hôte)
       - PUID=${PUID:-1000}
@@ -151,6 +158,15 @@ services:
       - BABELIO_CACHE_DIR=/cache/babelio
       - BABELIO_FAIR_SEC=${BABELIO_FAIR_SEC:-2.0}
       - BABELIO_CACHE_DAY=${BABELIO_CACHE_DAY:-30}
+      # PGX - Transcription automatisée (station GPU dédiée, cf. back-office-lmelp#302)
+      # Réutilise les mêmes variables hôte PGX_HOST/PGX_USER/PGX_REMOTE_* que lmelp
+      # (issue #58) ; seule la clé SSH est dédiée au backend (distincte de
+      # pgx_lmelp_ed25519, cf. issue #66).
+      - PGX_HOST=${PGX_HOST:-}
+      - PGX_USER=${PGX_USER:-}
+      - PGX_SSH_KEY_PATH=/app/keys/pgx_ed25519
+      - PGX_REMOTE_AUDIO_ROOT=${PGX_REMOTE_AUDIO_ROOT:-}
+      - PGX_REMOTE_TRANSCRIPTION_ROOT=${PGX_REMOTE_TRANSCRIPTION_ROOT:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
