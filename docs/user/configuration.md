@@ -151,8 +151,9 @@ Voir le [guide Google Search](https://github.com/castorfou/lmelp/blob/main/docs/
 
 ### Variables PGX (transcription automatisée)
 
-lmelp peut transcrire automatiquement les épisodes audio en s'appuyant sur une station
-GPU dédiée sur le réseau local (PGX), accessible en SSH. Cette fonctionnalité est
+Le **backend** (back-office) peut transcrire automatiquement les épisodes audio en
+s'appuyant sur une station GPU dédiée sur le réseau local (PGX), accessible en SSH —
+piloté depuis la page `/transcription-pgx` du back-office. Cette fonctionnalité est
 optionnelle : sans ces variables, l'application démarre normalement mais le pipeline de
 transcription PGX n'est pas utilisable.
 
@@ -163,12 +164,16 @@ PGX_REMOTE_AUDIO_ROOT=/chemin/distant/audios
 PGX_REMOTE_TRANSCRIPTION_ROOT=/chemin/distant/transcriptions
 ```
 
+Ces quatre variables sont partagées entre les services `backend` et `lmelp` (mêmes
+valeurs hôte) — seule la clé SSH dédiée diffère entre les deux (voir ci-dessous).
+
 !!! warning "PGX_HOST doit être une IP directe, jamais un nom `.local` ou un nom court"
     Un nom mDNS (`thinkstationpgx-d7ba.local`) ou un nom court (`pgx`) peut fonctionner
-    depuis un laptop et pourtant échouer silencieusement depuis un conteneur `lmelp`
+    depuis un laptop et pourtant échouer silencieusement depuis un conteneur `backend`
     déployé ailleurs (NAS, autre PC) — cas vécu sur déploiement NAS Synology (issue #60) :
-    la page **PGX** affichait *"Machine joignable — thinkstationpgx-d7ba.local ne répond
-    pas sur le port 22"* alors qu'un `ping` du même nom depuis le laptop fonctionnait.
+    le diagnostic de connexion affichait *"Machine joignable —
+    thinkstationpgx-d7ba.local ne répond pas sur le port 22"* alors qu'un `ping` du même
+    nom depuis le laptop fonctionnait.
 
     Le check de connectivité utilise la résolution DNS standard du système (pas de
     mDNS/avahi dans le conteneur), qui hérite du serveur DNS configuré sur la machine hôte
@@ -180,28 +185,38 @@ PGX_REMOTE_TRANSCRIPTION_ROOT=/chemin/distant/transcriptions
     **Toujours utiliser l'IP directe** de PGX pour `PGX_HOST`, idéalement une IP fixe
     (réservation DHCP côté routeur) pour qu'elle ne change pas dans le temps.
 
-La clé SSH dédiée (distincte de toute clé personnelle) est générée automatiquement au
-premier démarrage du conteneur `lmelp` et persistée sur le volume `PGX_KEYS_PATH` (voir
-[Chemins des volumes](#chemins-des-volumes)) — jamais intégrée à l'image Docker. La page
-**PGX** de l'interface Streamlit affiche la clé publique générée et la commande à
-exécuter sur PGX pour l'autoriser, ainsi qu'un diagnostic de connexion.
+La clé SSH dédiée du backend (distincte de toute clé personnelle) est générée
+automatiquement au premier démarrage du conteneur `backend` et persistée sur le volume
+`PGX_BACKEND_KEYS_PATH` (voir [Chemins des volumes](#chemins-des-volumes)) — jamais
+intégrée à l'image Docker. La page `/transcription-pgx` du back-office affiche la clé
+publique générée et la commande à exécuter sur PGX pour l'autoriser, ainsi qu'un
+diagnostic de connexion.
 
-!!! warning "Watchdog de permissions sur la clé privée (issue #61)"
-    La clé privée est générée avec les droits corrects (`600`, lecture/écriture par son
-    seul propriétaire) — mais sur certains NAS, un mécanisme externe au conteneur (très
-    probablement la synchronisation ACL Btrfs/Windows ACL de Synology sur le dossier
-    partagé) a été observé réinitialisant ces droits à `755` après coup, exposant la clé
-    en lecture à d'autres utilisateurs du NAS.
+!!! info "Configuration historique côté `lmelp` (coexistence)"
+    Le service `lmelp` (Streamlit) conservait sa propre configuration PGX
+    (`PGX_KEYS_PATH`, clé `pgx_lmelp_ed25519`) avant que le pipeline de transcription ne
+    soit porté vers le `backend` (back-office-lmelp#302, issue #66). Cette configuration
+    reste présente dans `docker-compose.yml` pour compatibilité mais n'est plus utilisée
+    fonctionnellement — toute nouvelle transcription doit passer par
+    `/transcription-pgx`.
+
+!!! warning "Watchdog de permissions sur les clés privées (issues #61, #66)"
+    Les clés privées sont générées avec les droits corrects (`600`, lecture/écriture par
+    leur seul propriétaire) — mais sur certains NAS, un mécanisme externe au conteneur
+    (très probablement la synchronisation ACL Btrfs/Windows ACL de Synology sur le
+    dossier partagé) a été observé réinitialisant ces droits à `755` après coup, exposant
+    la clé en lecture à d'autres utilisateurs du NAS.
 
     Un service `pgx-keys-watchdog` (image `alpine`, sans build) tourne en permanence à
-    côté de `lmelp` : il réapplique `600` sur la clé privée (et `644` sur la clé
-    publique) toutes les `PGX_KEYS_WATCHDOG_INTERVAL` secondes (défaut `300`, à ajuster
-    seulement en cas de besoin particulier). Ce watchdog suit le même principe que celui
-    déjà utilisé pour les logs MongoDB (`CHOWN_WATCHDOG_INTERVAL`, issue #51) : corriger
-    le symptôme de façon fiable sans dépendre de la cause exacte côté NAS.
+    côté de `lmelp` et du `backend` : il réapplique `600` sur chaque clé privée (et `644`
+    sur la clé publique correspondante — `pgx_lmelp_ed25519` **et** `pgx_ed25519`) toutes
+    les `PGX_KEYS_WATCHDOG_INTERVAL` secondes (défaut `300`, à ajuster seulement en cas de
+    besoin particulier). Ce watchdog suit le même principe que celui déjà utilisé pour les
+    logs MongoDB (`CHOWN_WATCHDOG_INTERVAL`, issue #51) : corriger le symptôme de façon
+    fiable sans dépendre de la cause exacte côté NAS.
 
 Guide complet (variables optionnelles, dépannage) :
-[transcription-pgx](https://castorfou.github.io/lmelp/user/transcription-pgx/).
+[transcription-pgx](https://castorfou.github.io/back-office-lmelp/user/transcription-pgx/).
 
 ## Variables Back-Office
 
@@ -327,8 +342,11 @@ MONGO_LOG_PATH=./data/mongodb-logs
 # Cache Babelio (persisté entre redéploiements)
 BABELIO_CACHE_PATH=./data/cache/babelio
 
-# Clé SSH dédiée PGX (persistée entre redéploiements)
+# Clé SSH dédiée PGX de lmelp (historique, persistée entre redéploiements)
 PGX_KEYS_PATH=./data/pgx-keys
+
+# Clé SSH dédiée PGX du backend (persistée entre redéploiements)
+PGX_BACKEND_KEYS_PATH=./data/pgx-keys-backend
 ```
 
 **Note sur les logs** :
@@ -356,12 +374,13 @@ LOG_PATH=/mnt/storage/lmelp/logs
 MONGO_LOG_PATH=/mnt/storage/lmelp/mongodb-logs
 BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
 PGX_KEYS_PATH=/mnt/storage/lmelp/pgx-keys
+PGX_BACKEND_KEYS_PATH=/mnt/storage/lmelp/pgx-keys-backend
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio,pgx-keys}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio,pgx-keys,pgx-keys-backend}
 chmod -R 755 /mnt/storage/lmelp
 ```
 

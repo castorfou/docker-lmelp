@@ -442,6 +442,102 @@ class TestBackendAudioSyncConfiguration:
         )
 
 
+class TestBackendPgxConfiguration:
+    """Tests for PGX transcription environment variables on backend (issue #66).
+
+    back-office-lmelp#302 ported the PGX transcription pipeline from lmelp to
+    the backend service (page /transcription-pgx, endpoints /api/pgx/*). The
+    backend gets its own dedicated SSH key (pgx_ed25519), distinct from
+    lmelp's (pgx_lmelp_ed25519, issue #58) -- both configurations coexist in
+    docker-compose.yml.
+    """
+
+    def _get_backend(self):
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["backend"]
+
+    def _get_env_list(self, service):
+        """Return service environment as a list of strings."""
+        env = service.get("environment", [])
+        if isinstance(env, dict):
+            return [f"{k}={v}" for k, v in env.items()]
+        return env
+
+    def test_backend_has_pgx_host_env(self):
+        """Verify that backend defines a PGX_HOST environment variable."""
+        service = self._get_backend()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_HOST" in env_keys, (
+            "backend should define PGX_HOST environment variable"
+        )
+
+    def test_backend_has_pgx_user_env(self):
+        """Verify that backend defines a PGX_USER environment variable."""
+        service = self._get_backend()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_USER" in env_keys, (
+            "backend should define PGX_USER environment variable"
+        )
+
+    def test_backend_has_pgx_ssh_key_path_env(self):
+        """Verify PGX_SSH_KEY_PATH is fixed to the backend's dedicated key.
+
+        Must differ from lmelp's pgx_lmelp_ed25519 (back-office-lmelp#302
+        deliberately generates its own key rather than reusing lmelp's).
+        """
+        service = self._get_backend()
+        env_list = self._get_env_list(service)
+        key_path_entry = next(
+            (e for e in env_list if e.startswith("PGX_SSH_KEY_PATH=")), None
+        )
+        assert key_path_entry is not None, "PGX_SSH_KEY_PATH should be defined"
+        assert (
+            key_path_entry
+            == "PGX_SSH_KEY_PATH=/app/keys/pgx_ed25519"  # pragma: allowlist secret
+        ), "PGX_SSH_KEY_PATH should be fixed to /app/keys/pgx_ed25519"
+
+    def test_backend_has_pgx_remote_audio_root_env(self):
+        """Verify that backend defines a PGX_REMOTE_AUDIO_ROOT environment variable."""
+        service = self._get_backend()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_REMOTE_AUDIO_ROOT" in env_keys, (
+            "backend should define PGX_REMOTE_AUDIO_ROOT environment variable"
+        )
+
+    def test_backend_has_pgx_remote_transcription_root_env(self):
+        """Verify that backend defines a PGX_REMOTE_TRANSCRIPTION_ROOT env variable."""
+        service = self._get_backend()
+        env_list = self._get_env_list(service)
+        env_keys = [e.split("=")[0] for e in env_list]
+        assert "PGX_REMOTE_TRANSCRIPTION_ROOT" in env_keys, (
+            "backend should define PGX_REMOTE_TRANSCRIPTION_ROOT environment variable"
+        )
+
+    def test_backend_has_pgx_keys_volume(self):
+        """Verify that backend mounts a persistent volume on /app/keys."""
+        service = self._get_backend()
+        volumes = service.get("volumes", [])
+        has_pgx_keys_volume = any(":/app/keys" in str(v) for v in volumes)
+        assert has_pgx_keys_volume, (
+            "backend should mount a volume for /app/keys so the dedicated PGX "
+            "SSH key survives container recreation"
+        )
+
+    def test_pgx_backend_keys_volume_uses_env_variable(self):
+        """Verify the PGX keys volume path is configurable via PGX_BACKEND_KEYS_PATH."""
+        service = self._get_backend()
+        volumes = service.get("volumes", [])
+        pgx_keys_volume = next((v for v in volumes if ":/app/keys" in str(v)), None)
+        assert pgx_keys_volume is not None, "PGX keys volume should exist"
+        assert "PGX_BACKEND_KEYS_PATH" in str(pgx_keys_volume), (
+            "backend PGX keys volume should be configurable via PGX_BACKEND_KEYS_PATH"
+        )
+
+
 class TestPgxKeysWatchdogConfiguration:
     """Tests for the PGX SSH key permissions watchdog (issue #61).
 
@@ -486,6 +582,33 @@ class TestPgxKeysWatchdogConfiguration:
         )
         assert "pgx_lmelp_ed25519" in command, (
             "pgx-keys-watchdog command should target the PGX private key file"
+        )
+
+    def test_pgx_keys_watchdog_mounts_backend_pgx_keys_volume(self):
+        """Verify the watchdog also mounts the backend's PGX_BACKEND_KEYS_PATH
+        volume (issue #66) -- extended rather than duplicated into a second
+        service, per CLAUDE.md guidance on watchdog sidecars."""
+        service = self._get_watchdog()
+        volumes = service.get("volumes", [])
+        assert any("PGX_BACKEND_KEYS_PATH" in str(v) for v in volumes), (
+            "pgx-keys-watchdog should also mount the volume configured via "
+            "PGX_BACKEND_KEYS_PATH"
+        )
+
+    def test_pgx_keys_watchdog_command_chmods_backend_private_key_to_600(self):
+        """Verify that the watchdog command also restores 600 on the
+        backend's dedicated private key (pgx_ed25519, issue #66)."""
+        service = self._get_watchdog()
+        command = service.get("command", "")
+        assert "pgx_ed25519" in command, (
+            "pgx-keys-watchdog command should target the backend PGX private "
+            "key file (pgx_ed25519)"
+        )
+        # pgx_ed25519 must appear as its own token, not just as a substring
+        # of pgx_lmelp_ed25519.
+        assert "/pgx_ed25519" in command, (
+            "pgx-keys-watchdog command should chmod the backend key path "
+            "(distinct from pgx_lmelp_ed25519)"
         )
 
     def test_pgx_keys_watchdog_has_restart_policy(self):
