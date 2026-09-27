@@ -106,6 +106,30 @@ avec `disableLogging: true`, et home du user `mongodb` déplacé vers `/home/mon
   d'abord par root (ex. `/tmp/.mongodb` créé par le healthcheck) ferait retomber les
   scripts, qui tournent en `mongodb` après `gosu`, sur l'`EACCES` de l'issue #54.
 
+### L'anacron de `lmelp-export` n'a pas d'heure fixe, et tourne en UTC
+
+**Piège découvert lors de l'issue #68 / lmelp-mobile#135** : l'app mobile avait
+systématiquement un jour de retard sur Calibre, sans aucune erreur. `nightly-sync.sh`
+(tâche DSM qui alimente la bibliothèque CWA lue via `CALIBRE_HOST_PATH`) tournait après
+l'export `lmelp-export`, qui lisait donc toujours la bibliothèque de la veille.
+
+L'anacron de l'image `lmelp-mobile-export` (`1 10` dans `/etc/anacrontab`, boucle
+`anacron -d` toutes les heures) raisonne en **dates**, pas en heures. Il part au premier
+passage horaire après minuit, plus 10 min, donc entre 00:10 et 01:10. La minute exacte
+dépend du démarrage du conteneur. Sans `TZ`, le conteneur est en **UTC**, alors que le
+Planificateur DSM est en heure de Paris. `/var/spool/anacron` n'est pas persisté : chaque
+recréation (Watchtower, redéploiement) relance un export environ 10 min après le démarrage.
+
+**Règles** :
+- `scripts/nas/nightly-sync.sh` doit avoir **fini** avant 00:10 UTC. Tout changement
+  d'horaire de l'un des deux côtés se recalcule en UTC.
+- Ne pas ajouter `TZ=Europe/Paris` à `lmelp-export` sans revoir l'horaire DSM : la
+  fenêtre d'export passerait à 00:10 heure de Paris, 5 min après nightly-sync (00:05).
+- `nightly-sync.sh` utilise `set -uo pipefail` **sans `-e`**, volontairement : il gère
+  chaque erreur lui-même pour que le Planificateur DSM affiche un message clair.
+
+Référence et check-list de diagnostic : `docs/user/calibre-vers-app-mobile.md`.
+
 ### Méthodologie de debugging : Comprendre AVANT de contourner
 
 **Principe fondamental** : Toujours chercher à **comprendre la cause racine** d'un problème avant d'appliquer une solution de contournement.

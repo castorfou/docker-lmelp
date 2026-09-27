@@ -264,6 +264,7 @@ L'onglet Calibre disparaîtra de l'interface web et les endpoints API renverront
 
 ## Références
 
+- [De Calibre à l'app mobile](calibre-vers-app-mobile.md) : comment les données Calibre parviennent jusqu'à l'app mobile `lmelp-mobile`
 - [Documentation Calibre officielle](https://calibre-ebook.com/)
 - [Format de base de données Calibre](https://manual.calibre-ebook.com/db_api.html)
 - [Dépôt back-office-lmelp](https://github.com/castorfou/back-office-lmelp)
