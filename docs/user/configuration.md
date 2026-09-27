@@ -30,9 +30,6 @@ MONGO_PORT=27018
 
 # Nom de la base de données
 MONGO_DATABASE=masque_et_la_plume
-
-# Activer les logs de requêtes MongoDB
-DB_LOGS=true
 ```
 
 **Note sur le port** : Le port par défaut est **27018** (au lieu de 27017 standard) pour permettre de faire tourner cette stack en parallèle d'une instance MongoDB existante. Une fois la migration terminée, vous pouvez revenir au port 27017 en modifiant `MONGO_PORT=27017` dans `.env`.
@@ -41,26 +38,7 @@ DB_LOGS=true
 - **Depuis les containers** : `mongodb://mongo:27017/masque_et_la_plume` (port interne 27017)
 - **Depuis l'hôte** : `mongodb://localhost:27018/masque_et_la_plume` (port mappé via MONGO_PORT)
 
-## Variables LMELP Application
-
-### Configuration de base
-
-```bash
-# Port d'accès à l'application Streamlit
-LMELP_PORT=8501
-
-# Nom de la base de données
-DB_NAME=masque_et_la_plume
-
-# Activer les logs de requêtes MongoDB
-DB_LOGS=true
-
-# URL du flux RSS
-RSS_LMELP_URL=https://radiofrance-podcast.net/podcast09/rss_14007.xml
-
-# Mode de l'application
-LMELP_MODE=web
-```
+## Variables applicatives
 
 ### API Keys LLM (Large Language Models)
 
@@ -164,8 +142,7 @@ PGX_REMOTE_AUDIO_ROOT=/chemin/distant/audios
 PGX_REMOTE_TRANSCRIPTION_ROOT=/chemin/distant/transcriptions
 ```
 
-Ces quatre variables sont partagées entre les services `backend` et `lmelp` (mêmes
-valeurs hôte) — seule la clé SSH dédiée diffère entre les deux (voir ci-dessous).
+Ces quatre variables sont lues par le service `backend`.
 
 !!! warning "PGX_HOST doit être une IP directe, jamais un nom `.local` ou un nom court"
     Un nom mDNS (`thinkstationpgx-d7ba.local`) ou un nom court (`pgx`) peut fonctionner
@@ -192,13 +169,11 @@ intégrée à l'image Docker. La page `/transcription-pgx` du back-office affich
 publique générée et la commande à exécuter sur PGX pour l'autoriser, ainsi qu'un
 diagnostic de connexion.
 
-!!! info "Configuration historique côté `lmelp` (coexistence)"
-    Le service `lmelp` (Streamlit) conservait sa propre configuration PGX
-    (`PGX_KEYS_PATH`, clé `pgx_lmelp_ed25519`) avant que le pipeline de transcription ne
-    soit porté vers le `backend` (back-office-lmelp#302, issue #66). Cette configuration
-    reste présente dans `docker-compose.yml` pour compatibilité mais n'est plus utilisée
-    fonctionnellement — toute nouvelle transcription doit passer par
-    `/transcription-pgx`.
+!!! info "Clé historique `pgx_lmelp_ed25519`"
+    Le volume `PGX_KEYS_PATH` conserve la clé SSH de l'ancienne application Streamlit
+    (`pgx_lmelp_ed25519`). Aucun service ne l'utilise pour transcrire : elle reste
+    uniquement surveillée par `pgx-keys-watchdog`. Toute transcription passe par
+    `/transcription-pgx` et la clé du `backend`.
 
 !!! warning "Watchdog de permissions sur les clés privées (issues #61, #66)"
     Les clés privées sont générées avec les droits corrects (`600`, lecture/écriture par
@@ -208,8 +183,8 @@ diagnostic de connexion.
     la clé en lecture à d'autres utilisateurs du NAS.
 
     Un service `pgx-keys-watchdog` (image `alpine`, sans build) tourne en permanence à
-    côté de `lmelp` et du `backend` : il réapplique `600` sur chaque clé privée (et `644`
-    sur la clé publique correspondante — `pgx_lmelp_ed25519` **et** `pgx_ed25519`) toutes
+    côté du `backend` : il réapplique `600` sur chaque clé privée (et `644` sur la clé
+    publique correspondante — `pgx_ed25519` **et** la clé historique `pgx_lmelp_ed25519`) toutes
     les `PGX_KEYS_WATCHDOG_INTERVAL` secondes (défaut `300`, à ajuster seulement en cas de
     besoin particulier). Ce watchdog suit le même principe que celui déjà utilisé pour les
     logs MongoDB (`CHOWN_WATCHDOG_INTERVAL`, issue #51) : corriger le symptôme de façon
@@ -305,9 +280,8 @@ NTFY_SERVER_URL=
 NTFY_TOPIC=
 ```
 
-Le backend monte le même volume `AUDIO_PATH` que `lmelp` (voir
-[Chemins des volumes](#chemins-des-volumes)), pour partager les fichiers audio déjà
-téléchargés sans les dupliquer.
+Le backend stocke les fichiers audio téléchargés dans le volume `AUDIO_PATH` (voir
+[Chemins des volumes](#chemins-des-volumes)).
 
 ### Frontend
 
@@ -330,11 +304,8 @@ MONGO_DATA_PATH=./data/mongodb
 # Backups MongoDB
 BACKUP_PATH=./data/backups
 
-# Fichiers audio LMELP (partagé entre les services lmelp et backend)
+# Fichiers audio LMELP (téléchargés par le backend)
 AUDIO_PATH=./data/audios
-
-# Logs applicatifs LMELP (pour logs de l'app Streamlit)
-LOG_PATH=./data/logs
 
 # Logs MongoDB (mongod.log, backup.log, logrotate.log)
 MONGO_LOG_PATH=./data/mongodb-logs
@@ -342,22 +313,25 @@ MONGO_LOG_PATH=./data/mongodb-logs
 # Cache Babelio (persisté entre redéploiements)
 BABELIO_CACHE_PATH=./data/cache/babelio
 
-# Clé SSH dédiée PGX de lmelp (historique, persistée entre redéploiements)
+# Clé SSH PGX historique (ancienne application Streamlit, surveillée par le watchdog)
 PGX_KEYS_PATH=./data/pgx-keys
 
 # Clé SSH dédiée PGX du backend (persistée entre redéploiements)
 PGX_BACKEND_KEYS_PATH=./data/pgx-keys-backend
+
+# Log du job anacron de lmelp-export (publish-data-release.log)
+LMELP_EXPORT_LOG_PATH=./data/logs/lmelp-export
 ```
 
 **Note sur les logs** :
-- `LOG_PATH` est monté dans le container LMELP pour d'éventuels logs applicatifs
+- `LMELP_EXPORT_LOG_PATH` est monté sur `/var/log` du container `lmelp-export`
 - `MONGO_LOG_PATH` est monté dans le container MongoDB pour tous les logs MongoDB (serveur, backup, rotation)
 - Les logs Docker (stdout/stderr) sont gérés par Docker et accessibles via `docker compose logs`
 - Configuration de rotation : 10MB max par fichier, 3 fichiers conservés
-- ⚠️ `MONGO_LOG_PATH` ne doit **jamais** être un sous-dossier de `LOG_PATH` : le
-  conteneur LMELP chowne récursivement son propre volume `LOG_PATH` au démarrage
-  (utilisateur non-root configurable), ce qui écraserait l'ownership `mongodb` des logs
-  MongoDB si ceux-ci étaient imbriqués dedans
+- ⚠️ `MONGO_LOG_PATH` ne doit **jamais** être imbriqué dans le volume d'un autre
+  service (ni l'inverse) : un service qui chowne récursivement son propre volume au
+  démarrage (utilisateur non-root configurable) écraserait l'ownership `mongodb` des
+  logs MongoDB
 
 **⚠️ Important pour Portainer** : Sur Portainer, utilisez **toujours des chemins absolus** pour les volumes. Les chemins relatifs sont interprétés depuis le répertoire de travail de Portainer (`/data/compose/X/`) et non depuis votre repository Git.
 
@@ -370,17 +344,17 @@ Vous pouvez utiliser des chemins absolus pour stocker les données ailleurs :
 MONGO_DATA_PATH=/mnt/storage/lmelp/mongodb
 BACKUP_PATH=/mnt/storage/lmelp/backups
 AUDIO_PATH=/mnt/storage/lmelp/audios
-LOG_PATH=/mnt/storage/lmelp/logs
 MONGO_LOG_PATH=/mnt/storage/lmelp/mongodb-logs
 BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
 PGX_KEYS_PATH=/mnt/storage/lmelp/pgx-keys
 PGX_BACKEND_KEYS_PATH=/mnt/storage/lmelp/pgx-keys-backend
+LMELP_EXPORT_LOG_PATH=/mnt/storage/lmelp/logs/lmelp-export
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs,mongodb-logs,cache/babelio,pgx-keys,pgx-keys-backend}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys,pgx-keys-backend}
 chmod -R 755 /mnt/storage/lmelp
 ```
 
@@ -456,7 +430,7 @@ Changer régulièrement vos clés API et mettre à jour le fichier `.env` :
 nano .env
 
 # Redémarrer les services pour prendre en compte les nouvelles clés
-docker compose restart lmelp
+docker compose up -d backend
 ```
 
 ## Exemples de configurations
@@ -475,7 +449,6 @@ GEMINI_API_KEY=your_key_here
 MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
-LOG_PATH=./data/logs
 MONGO_LOG_PATH=./data/mongodb-logs
 ```
 
@@ -494,7 +467,6 @@ OPENAI_API_KEY=your_openai_key
 MONGO_DATA_PATH=/volume1/lmelp/mongodb
 BACKUP_PATH=/volume1/lmelp/backups
 AUDIO_PATH=/volume1/lmelp/audios
-LOG_PATH=/volume1/lmelp/logs
 MONGO_LOG_PATH=/volume1/lmelp/mongodb-logs
 
 # Backup avec rétention longue
