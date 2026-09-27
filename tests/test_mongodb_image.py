@@ -206,6 +206,36 @@ class TestMongoDBScriptSelfDefense:
         )
 
 
+class TestMongoshHomeOutsideDataVolume:
+    """Issue #69: the official mongo image sets HOME=/data/db and gives the
+    mongodb user /data/db as its passwd home, i.e. the MONGO_DATA_PATH
+    volume. mongosh writes a session log per call under
+    $HOME/.mongodb/mongosh/ and prunes older ones, so file-level backups of
+    that volume (Hyper Backup, rsync) saw files vanish mid-copy."""
+
+    @staticmethod
+    def _dockerfile() -> str:
+        with open("mongodb.Dockerfile") as f:
+            return f.read()
+
+    def test_dockerfile_disables_mongosh_logging_globally(self):
+        """/etc/mongosh.conf with disableLogging stops the session logs for
+        every mongosh caller (healthcheck, anacron scripts, entrypoint init,
+        interactive Portainer consoles)."""
+        content = self._dockerfile()
+        assert "/etc/mongosh.conf" in content
+        assert "disableLogging: true" in content
+
+    def test_dockerfile_moves_mongodb_user_home_out_of_data_volume(self):
+        """The anacron scripts derive HOME from `getent passwd` (issue #54),
+        which must no longer resolve to /data/db. A dedicated home also
+        keeps mongodb from sharing root's HOME=/tmp from the healthcheck,
+        whose root-owned /tmp/.mongodb would bring back #54's EACCES."""
+        content = self._dockerfile()
+        assert "usermod -d /home/mongodb mongodb" in content
+        assert "chown mongodb:mongodb /home/mongodb" in content
+
+
 class TestMongoDBImageContent:
     """Tests for MongoDB image content and configuration."""
 
@@ -657,6 +687,118 @@ class TestMongoDBImageContent:
             assert healed, (
                 "Ownership watchdog did not self-heal /var/log/mongodb "
                 "back to mongodb (UID 999) after external corruption"
+            )
+        finally:
+            subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+
+    def test_mongosh_global_config_disables_logging(self):
+        """Issue #69: /etc/mongosh.conf must exist in the image, be readable
+        by the mongodb user, and disable mongosh session logging."""
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--user",
+                "mongodb",
+                "--entrypoint",
+                "cat",
+                "lmelp-mongo:test",
+                "/etc/mongosh.conf",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, (
+            f"/etc/mongosh.conf should be readable by mongodb: {result.stderr}"
+        )
+        assert "disableLogging: true" in result.stdout
+
+    def test_mongodb_user_home_is_outside_data_volume(self):
+        """Issue #69: the mongodb user's passwd home must be /home/mongodb,
+        owned by mongodb (UID 999), not the /data/db volume."""
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--entrypoint",
+                "sh",
+                "lmelp-mongo:test",
+                "-c",
+                "getent passwd mongodb | cut -d: -f6; stat -c %u /home/mongodb",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        home, owner = result.stdout.split()
+        assert home == "/home/mongodb", f"mongodb home should move, got {home!r}"
+        assert owner == "999", f"/home/mongodb should be owned by 999, got {owner!r}"
+
+    def test_mongosh_calls_leave_data_volume_untouched(self):
+        """Issue #69 end-to-end: running the compose healthcheck command
+        several times, then the log rotation script (which calls mongosh
+        after re-exec'ing as mongodb), must not create /data/db/.mongodb,
+        nor bring back issue #54's EACCES warning."""
+        import yaml
+
+        with open("docker-compose.yml") as f:
+            healthcheck = yaml.safe_load(f)["services"]["mongo"]["healthcheck"]
+        kind, command = healthcheck["test"]
+        assert kind == "CMD-SHELL"
+
+        container_name = "lmelp-mongo-test-mongosh-home"
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+        try:
+            run_result = subprocess.run(
+                ["docker", "run", "-d", "--name", container_name, "lmelp-mongo:test"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            assert run_result.returncode == 0, (
+                f"Failed to start container: {run_result.stderr}"
+            )
+
+            def healthcheck_once() -> int:
+                return subprocess.run(
+                    ["docker", "exec", container_name, "/bin/sh", "-c", command],
+                    capture_output=True,
+                ).returncode
+
+            # Wait for mongod to accept connections (== container healthy).
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline and healthcheck_once() != 0:
+                time.sleep(1)
+            for _ in range(3):
+                assert healthcheck_once() == 0, "healthcheck should pass"
+
+            rotate = subprocess.run(
+                ["docker", "exec", container_name, "/scripts/rotate_mongodb_logs.sh"],
+                capture_output=True,
+                text=True,
+            )
+            assert "EACCES" not in rotate.stdout + rotate.stderr, (
+                "mongosh in rotate_mongodb_logs.sh should find a writable HOME: "
+                f"{rotate.stdout}{rotate.stderr}"
+            )
+
+            leftover = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "sh",
+                    "-c",
+                    "find /data/db/.mongodb 2>/dev/null",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert leftover.stdout.strip() == "", (
+                "mongosh should no longer write under the /data/db volume, "
+                f"found:\n{leftover.stdout}"
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)

@@ -23,6 +23,20 @@ RUN mkdir -p /var/log/mongodb && \
     chown -R mongodb:mongodb /var/log/mongodb && \
     chmod 755 /var/log/mongodb
 
+# Keep mongosh out of the /data/db volume (issue #69). The official image
+# sets HOME=/data/db and gives the mongodb user /data/db as its passwd home;
+# mongosh writes a session log per call under $HOME/.mongodb/mongosh and
+# prunes older ones, so file-level backups of the volume saw files vanish.
+# - disableLogging in the global config stops those logs for every caller;
+# - a dedicated home for mongodb (read by the scripts via getent, #54) keeps
+#   whatever mongosh still writes out of the volume, and separate from the
+#   root-owned HOME=/tmp used by the compose healthcheck.
+RUN printf 'mongosh:\n  disableLogging: true\n' > /etc/mongosh.conf && \
+    chmod 644 /etc/mongosh.conf && \
+    mkdir -p /home/mongodb && \
+    chown mongodb:mongodb /home/mongodb && \
+    usermod -d /home/mongodb mongodb
+
 # Copy MongoDB configuration file
 COPY config/mongod.conf /etc/mongod.conf
 RUN chmod 644 /etc/mongod.conf && \

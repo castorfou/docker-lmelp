@@ -84,6 +84,28 @@ héritées, etc.), leurs chemins hôte respectifs ne doivent **jamais** être im
 l'un dans l'autre — même en tant que sous-dossier a priori "logique". Vérifier ce
 risque à chaque nouveau volume ajouté à `docker-compose.yml`.
 
+### Dans l'image mongo, `HOME` pointe sur le volume de données
+
+**Piège découvert lors de l'issue #69** : l'image officielle `mongo` définit
+`ENV HOME=/data/db` et donne aussi `/data/db` comme home `passwd` au user `mongodb`.
+Or `/data/db` est le volume `MONGO_DATA_PATH`. Le healthcheck appelait `mongosh` toutes
+les 10 s, et chaque appel écrivait (puis purgeait) un log de session dans
+`/data/db/.mongodb/mongosh/`. Résultat : Hyper Backup/rsync voyait des fichiers
+disparaître en cours de copie (`file has vanished`, code 24) et finissait en « partial
+success ».
+
+**Correctif en place** : healthcheck en `CMD-SHELL` avec `HOME=/tmp`, `/etc/mongosh.conf`
+avec `disableLogging: true`, et home du user `mongodb` déplacé vers `/home/mongodb`
+(`usermod -d` dans `mongodb.Dockerfile`), ce que lisent les scripts anacron via `getent`.
+
+**Règles** :
+- Tout nouvel appel d'un outil qui écrit dans `$HOME` (mongosh ou autre CLI) depuis le
+  conteneur `mongo` (healthcheck, script, job anacron) doit avoir un `HOME` **hors** de
+  `/data/db`.
+- root et `mongodb` ne doivent **pas** partager le même `HOME` : un dossier créé
+  d'abord par root (ex. `/tmp/.mongodb` créé par le healthcheck) ferait retomber les
+  scripts, qui tournent en `mongodb` après `gosu`, sur l'`EACCES` de l'issue #54.
+
 ### Méthodologie de debugging : Comprendre AVANT de contourner
 
 **Principe fondamental** : Toujours chercher à **comprendre la cause racine** d'un problème avant d'appliquer une solution de contournement.
