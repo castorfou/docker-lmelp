@@ -14,7 +14,9 @@ services:
     environment:
       - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-masque_et_la_plume}
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      # HOME=/tmp: the mongo image sets HOME=/data/db (the data volume), where
+      # mongosh would otherwise write its per-session files every 10 s (#69).
+      test: ["CMD-SHELL", "HOME=/tmp mongosh --quiet --eval 'db.adminCommand(\"ping\")' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -617,3 +617,47 @@ class TestPgxKeysWatchdogConfiguration:
         assert service.get("restart") == "unless-stopped", (
             "pgx-keys-watchdog should have restart: unless-stopped"
         )
+
+
+class TestMongoHealthcheckHome:
+    """Issue #69: the official mongo image sets HOME=/data/db, i.e. the
+    MONGO_DATA_PATH volume. Every mongosh call from the healthcheck (every
+    10 s) wrote a session log under /data/db/.mongodb/mongosh/ and pruned
+    older ones, so file-level backups of the data folder (Hyper Backup,
+    rsync) saw files vanish mid-copy and ended in "partial success"."""
+
+    @staticmethod
+    def _mongo_healthcheck() -> dict:
+        with open("docker-compose.yml") as f:
+            config = yaml.safe_load(f)
+        return config["services"]["mongo"]["healthcheck"]
+
+    def test_mongo_healthcheck_uses_cmd_shell(self):
+        """Overriding HOME inline requires a shell: CMD-SHELL, not CMD."""
+        test = self._mongo_healthcheck()["test"]
+        assert test[0] == "CMD-SHELL", (
+            f"mongo healthcheck should use CMD-SHELL to set HOME, got {test[0]!r}"
+        )
+
+    def test_mongo_healthcheck_forces_home_outside_data_volume(self):
+        """The healthcheck command must run mongosh with HOME=/tmp so its
+        per-session files never land in the /data/db volume."""
+        command = self._mongo_healthcheck()["test"][1]
+        assert "HOME=/tmp mongosh" in command, (
+            f"mongo healthcheck should run 'HOME=/tmp mongosh ...', got {command!r}"
+        )
+        assert "/data/db" not in command
+
+    def test_mongo_healthcheck_still_pings(self):
+        """The healthcheck must still ping the server and fail on error."""
+        command = self._mongo_healthcheck()["test"][1]
+        assert "ping" in command
+        assert "|| exit 1" in command
+
+    def test_mongo_healthcheck_timing_unchanged(self):
+        """Timing parameters are unchanged by the HOME fix."""
+        healthcheck = self._mongo_healthcheck()
+        assert healthcheck["interval"] == "10s"
+        assert healthcheck["timeout"] == "5s"
+        assert healthcheck["retries"] == 5
+        assert healthcheck["start_period"] == "20s"
