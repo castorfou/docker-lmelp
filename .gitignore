@@ -153,6 +153,9 @@ data/pgx-keys/*
 !data/pgx-keys/.gitkeep
 data/pgx-keys-backend/*
 !data/pgx-keys-backend/.gitkeep
+# Copies locales de data/mongodb (ex. data/mongodb.v8-2026-09-27/ mise de côté
+# avant un changement de version majeure de MongoDB)
+data/mongodb.*/
 
 # ML models
 *.model
