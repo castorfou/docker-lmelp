@@ -1,0 +1,5 @@
+# Local uniquement : MongoDB 8.x refuse de démarrer sur noyau 6.19–7.0.13 (SERVER-121912)
+services:
+  mongo:
+    image: mongo:7.0
+    command: ["mongod"]
