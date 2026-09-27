@@ -39,8 +39,8 @@ créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
     [Variables PGX](configuration.md#variables-pgx-transcription-automatisee)). À créer
     même si la fonctionnalité n'est pas utilisée immédiatement : sans ce volume, une
     nouvelle clé serait régénérée à chaque recréation du conteneur, invalidant toute
-    autorisation SSH déjà déployée côté PGX. Le répertoire `pgx-keys` (historique, clé
-    dédiée à `lmelp`) reste optionnel — la transcription ne passe plus par ce service.
+    autorisation SSH déjà déployée côté PGX. Le répertoire `pgx-keys` (clé historique de
+    l'ancienne application Streamlit) reste optionnel.
 
 !!! warning "`PGX_HOST` : un nom `.local` qui marche sur laptop peut échouer sur NAS (issue #60)"
     Cas vécu : `PGX_HOST=thinkstationpgx-d7ba.local` fonctionnait depuis le laptop mais
@@ -54,10 +54,10 @@ créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
     utiliser l'IP directe de PGX pour `PGX_HOST`, jamais un nom `.local` ou un nom court.
 
 !!! warning "`mongodb-logs` ne doit pas être un sous-dossier de `logs` (issue #51)"
-    Le conteneur `lmelp` chowne récursivement son propre volume `LOG_PATH` à chaque
-    démarrage (utilisateur non-root configurable) — si `mongodb-logs` était imbriqué
-    dedans, ça écraserait l'ownership `mongodb` des logs Mongo et casserait les jobs
-    anacron (backup/rotation). D'où deux dossiers frères distincts, pas un parent/enfant.
+    Un service qui chowne récursivement son propre volume au démarrage (utilisateur
+    non-root configurable) écraserait l'ownership `mongodb` des logs Mongo si
+    `mongodb-logs` était imbriqué dedans, et casserait les jobs anacron
+    (backup/rotation). D'où des dossiers frères distincts, jamais parent/enfant.
 
 ## Étape 2 — Arrêter la stack sur le laptop
 
@@ -133,9 +133,8 @@ Points d'attention :
   sur ce NAS (`/volume1/docker/calibre-web-automated/books`), montée en lecture seule.
   Cette bibliothèque est alimentée chaque nuit par `scripts/nas/nightly-sync.sh`, qui doit
   tourner avant l'export de `lmelp-export` : voir [De Calibre à l'app mobile](calibre-vers-app-mobile.md).
-- `PUID`/`PGID` : câblés dans `docker-compose.yml` pour les services `lmelp` et
-  `backend` (utilisateur non-root configurable, castorfou/lmelp#105 et
-  castorfou/back-office-lmelp#258). Valeur `1027` déjà renseignée dans
+- `PUID`/`PGID` : câblés dans `docker-compose.yml` pour le service `backend`
+  (utilisateur non-root configurable, castorfou/back-office-lmelp#258). Valeur `1027` déjà renseignée dans
   `.env.nas.example` (UID réel de `guillaume` sur ce NAS) — les fichiers audios/cache
   déjà `root:root` d'un précédent déploiement sont repris automatiquement au prochain
   redémarrage du conteneur, sans manipulation manuelle.
@@ -196,8 +195,8 @@ mongorestore --db=masque_et_la_plume --drop /backups/migration_nas/masque_et_la_
 
 En naviguant sur chaque container :
 
-- lmelp : http://nas923:8501/
-- backoffice-lmelp : http://nas923:8081/
+- lmelp (frontend du back-office) : http://nas923:8081/
+- API backend : http://nas923:8000/health
 
 ## Étape 7 — Autoriser la clé SSH PGX
 
@@ -233,31 +232,15 @@ DSM : **Portail de connexion** → **Avancé** → **Proxy inversé**.
 - Destination
     - Protocol: HTTP
     - Hostname: localhost
-    - Port: 8501
-
-!!! warning "Streamlit nécessite le support WebSocket"
-    `lmelp` (Streamlit) communique via WebSocket (`/_stcore/stream`) pour rafraîchir la
-    page — sans relai de ces en-têtes, l'application reste bloquée sur un écran de
-    chargement vide derrière le reverse proxy (alors qu'un accès direct sur `:8501`
-    fonctionne). Éditer la règle **lmelp** → onglet **Custom Header** → **Create** →
-    préréglage **WebSocket** (ajoute `Upgrade: $http_upgrade` et
-    `Connection: $connection_upgrade`). Pas nécessaire sur `lmelp-bo` (application HTTP
-    classique).
-    ![alt text](image-2.png)
-
-**backoffice-lmelp**
-
-- Reverse Proxy Name: lmelp-bo
-- Source
-    - Protocol: HTTPS
-    - Hostname: lmelp-bo.ascot63.synology.me
-    - Port: 443
-    - Enable HSTS
-    - Access control profile: reseau local
-- Destination
-    - Protocol: HTTP
-    - Hostname: localhost
     - Port: 8081
+
+Le port de destination est celui du frontend du back-office (`FRONTEND_PORT`, `8081` dans
+`.env.nas.example`). L'application est servie en HTTP classique, sans en-tête WebSocket
+particulier.
+
+L'application s'installe comme PWA depuis cette URL. Une PWA installée depuis une autre
+URL reste liée à celle-ci : la désinstaller, puis la réinstaller depuis
+`https://lmelp.ascot63.synology.me`.
 
 
 ## Étape 9 — Valider le déploiement

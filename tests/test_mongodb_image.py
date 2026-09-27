@@ -118,36 +118,38 @@ class TestMongoDBEntrypointOwnership:
 
 
 class TestDockerComposeLogPathSeparation:
-    """Issue #51: MONGO_LOG_PATH must not be nested under LOG_PATH.
+    """Issue #51: MONGO_LOG_PATH must not share a host tree with another volume.
 
-    lmelp's entrypoint recursively chowns its own LOG_PATH bind mount at
-    every startup (PUID/PGID migration, castorfou/lmelp#105/PR#106). If
-    MONGO_LOG_PATH lives under LOG_PATH's tree, that chown silently
-    re-owns mongo's log files to lmelp's PUID/PGID, breaking the anacron
-    backup/log-rotation jobs which then can't write there as `mongodb`."""
+    A service that recursively chowns its own bind mount (e.g. a PUID/PGID
+    migration, as the former lmelp Streamlit service did on LOG_PATH) would
+    silently re-own mongo's log files if both host paths were nested, breaking
+    the anacron backup/log-rotation jobs which then can't write there as
+    `mongodb`. See CLAUDE.md, "Ne jamais imbriquer les volumes"."""
 
-    def test_mongo_log_path_default_is_not_nested_under_lmelp_log_path(self):
+    def test_mongo_log_path_default_is_not_nested_with_other_volumes(self):
         import re
 
         with open("docker-compose.yml") as f:
             content = f.read()
 
-        log_path_match = re.search(r"\$\{LOG_PATH:-([^}]+)\}", content)
-        mongo_log_path_match = re.search(r"\$\{MONGO_LOG_PATH:-([^}]+)\}", content)
-        assert log_path_match, "Could not find LOG_PATH default in docker-compose.yml"
-        assert mongo_log_path_match, (
+        defaults = {
+            var: path.rstrip("/")
+            for var, path in re.findall(r"\$\{([A-Z_]+_PATH):-(\./[^}]+)\}", content)
+        }
+        assert "MONGO_LOG_PATH" in defaults, (
             "Could not find MONGO_LOG_PATH default in docker-compose.yml"
         )
+        mongo_log_path = defaults.pop("MONGO_LOG_PATH")
 
-        log_path = log_path_match.group(1).rstrip("/")
-        mongo_log_path = mongo_log_path_match.group(1).rstrip("/")
-
-        assert not mongo_log_path.startswith(log_path + "/"), (
-            f"MONGO_LOG_PATH default ({mongo_log_path!r}) must not be nested "
-            f"under LOG_PATH default ({log_path!r}) — lmelp's entrypoint "
-            "recursively chowns its own LOG_PATH mount and would silently "
-            "re-own mongo's log files (issue #51)"
-        )
+        for var, path in defaults.items():
+            assert not mongo_log_path.startswith(path + "/"), (
+                f"MONGO_LOG_PATH default ({mongo_log_path!r}) must not be nested "
+                f"under {var} default ({path!r}) (issue #51)"
+            )
+            assert not path.startswith(mongo_log_path + "/"), (
+                f"{var} default ({path!r}) must not be nested under "
+                f"MONGO_LOG_PATH default ({mongo_log_path!r}) (issue #51)"
+            )
 
 
 class TestMongoDBScriptSelfDefense:

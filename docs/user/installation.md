@@ -31,7 +31,7 @@ cd docker-lmelp
 
 ### Étape 2 : Configuration des variables d'environnement
 
-**Note** : La structure des volumes (`data/mongodb/`, `data/backups/`, `data/audios/`, `data/logs/`, `data/pgx-keys/`) est créée automatiquement lors du clonage du repository grâce aux fichiers `.gitkeep`. `data/pgx-keys/` reçoit la clé SSH dédiée à la transcription PGX, générée automatiquement au premier démarrage du conteneur `lmelp` (voir [Variables PGX](configuration.md#variables-pgx-transcription-automatisee), optionnel).
+**Note** : La structure des volumes (`data/mongodb/`, `data/backups/`, `data/audios/`, `data/logs/`, `data/pgx-keys-backend/`) est créée automatiquement lors du clonage du repository grâce aux fichiers `.gitkeep`. `data/pgx-keys-backend/` reçoit la clé SSH dédiée à la transcription PGX, générée automatiquement au premier démarrage du conteneur `backend` (voir [Variables PGX](configuration.md#variables-pgx-transcription-automatisee), optionnel).
 
 Copier le template de configuration et le personnaliser :
 
@@ -107,19 +107,18 @@ docker compose logs
 docker compose logs -f
 
 # Logs d'un service spécifique
-docker compose logs lmelp
 docker compose logs backend
 docker compose logs frontend
 docker compose logs mongo
 
 # Voir les dernières lignes
-docker compose logs --tail=100 lmelp
+docker compose logs --tail=100 backend
 
 # Logs depuis une date/heure
-docker compose logs --since 2024-01-20T15:00:00 lmelp
+docker compose logs --since 2024-01-20T15:00:00 backend
 ```
 
-**Note** : Le répertoire `data/logs/` est monté dans le container LMELP pour d'éventuels logs applicatifs, mais les logs Docker sont stockés séparément par Docker lui-même (dans `/var/lib/docker/containers/`). La configuration actuelle limite les logs à 10MB par fichier avec rotation sur 3 fichiers maximum.
+**Note** : Le répertoire `data/logs/lmelp-export/` reçoit le log du job anacron de `lmelp-export`. Les logs Docker sont stockés séparément par Docker lui-même (dans `/var/lib/docker/containers/`). La configuration actuelle limite les logs à 10MB par fichier avec rotation sur 3 fichiers maximum.
 
 #### Vérification automatique avec Health Checks
 
@@ -132,18 +131,18 @@ docker compose ps
 # Sortie attendue :
 # NAME                        STATUS
 # lmelp-mongo                 Up (healthy)
-# lmelp-frontoffice           Up (healthy)
 # lmelp-backoffice-backend    Up (healthy)
 # lmelp-backoffice-frontend   Up (healthy)
-# lmelp-mongo-backup          Up
+# lmelp-export                Up (healthy)
+# lmelp-pgx-keys-watchdog     Up
 ```
 
 Les services devraient afficher **"Up (healthy)"** une fois complètement opérationnels. Les health checks vérifient automatiquement :
 
 - **MongoDB** : Commande `ping` via mongosh
-- **LMELP App** : Endpoint Streamlit `/_stcore/health`
-- **Backend API** : Endpoint `/` (retourne infos API)
-- **Frontend** : Disponibilité du serveur web nginx
+- **Backend API** : Endpoint `/health`
+- **Frontend** : Endpoint `/health` du serveur web nginx
+- **lmelp-export** : `ping` MongoDB via pymongo
 
 **Temps de démarrage** : Attendez 30-60 secondes après `docker compose up` pour que tous les services passent à l'état "healthy".
 
@@ -151,19 +150,13 @@ Les services devraient afficher **"Up (healthy)"** une fois complètement opéra
 
 Si vous souhaitez tester manuellement l'accessibilité :
 
-**LMELP Application** :
-```bash
-curl http://localhost:8501
-# Ou ouvrir dans le navigateur : http://localhost:8501
-```
-
-**Back-Office Frontend** :
+**LMELP (frontend web)** :
 ```bash
 curl http://localhost:8080
 # Ou ouvrir dans le navigateur : http://localhost:8080
 ```
 
-**Back-Office API** :
+**API Backend** :
 ```bash
 curl http://localhost:8000/
 # Devrait retourner : {"message":"Back-office LMELP API","version":"0.1.0"}
@@ -190,9 +183,8 @@ docker compose logs
 
 # Vérifier les erreurs par service
 docker compose logs mongo
-docker compose logs lmelp
-docker compose logs backoffice-backend
-docker compose logs backoffice-frontend
+docker compose logs backend
+docker compose logs frontend
 ```
 
 ### Problèmes de permissions
@@ -219,10 +211,9 @@ Les services doivent utiliser le nom de service `mongo` pour se connecter à Mon
 
 ### Port déjà utilisé
 
-Si un port est déjà utilisé (8501, 8080, 8000), modifier dans `.env` :
+Si un port est déjà utilisé (8080, 8000), modifier dans `.env` :
 
 ```bash
-LMELP_PORT=8502
 FRONTEND_PORT=8081
 BACKEND_PORT=8001
 ```
@@ -274,7 +265,6 @@ rm -rf data/
 docker images | grep lmelp
 
 # Supprimer les images
-docker rmi ghcr.io/castorfou/lmelp:latest
 docker rmi ghcr.io/castorfou/lmelp-frontend:latest
 docker rmi ghcr.io/castorfou/lmelp-backend:latest
 docker rmi mongo:latest

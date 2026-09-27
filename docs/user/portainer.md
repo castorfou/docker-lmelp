@@ -76,14 +76,14 @@ Portainer va :
 
 Aller dans **Stacks** → **lmelp-stack** pour voir :
 
-- Liste des services (`lmelp-mongo`, `lmelp-frontoffice`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`)
+- Liste des services (`lmelp-mongo`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`, `lmelp-export`, `lmelp-pgx-keys-watchdog`)
 - État de chaque container (vert = healthy)
 - Logs en temps réel
 
 En naviguant sur chaque container :
 
-- lmelp : http://localhost:8501/
-- backoffice-lmelp : http://localhost:8080/
+- lmelp (frontend web) : http://localhost:8080/
+- API backend : http://localhost:8000/health
 
 
 ## Gestion de la stack dans Portainer
@@ -94,8 +94,9 @@ En naviguant sur chaque container :
 
 - **lmelp-backoffice-backend** : ⬤ healthy
 - **lmelp-backoffice-frontend** : ⬤ healthy
-- **lmelp-frontoffice** : ⬤ healthy
+- **lmelp-export** : ⬤ healthy
 - **lmelp-mongo** : ⬤ healthy
+- **lmelp-pgx-keys-watchdog** : ⬤ running (pas de healthcheck)
 
 ### Consulter les logs
 
@@ -167,6 +168,13 @@ Portainer va :
 3. Modifier le fichier YAML
 4. Cliquer sur **Update the stack**
 
+!!! warning "Service retiré du `docker-compose.yml` : cocher « Prune services »"
+    Lorsqu'un service disparaît du `docker-compose.yml`, son conteneur n'est supprimé
+    que si l'option **Prune services** est cochée au moment de **Update the stack** /
+    **Pull and redeploy**. Sans elle, l'ancien conteneur continue de tourner (par exemple
+    `lmelp-frontoffice`, l'ancienne application Streamlit) : le supprimer alors à la main
+    depuis **Containers**. Équivalent en CLI : `docker compose up -d --remove-orphans`.
+
 ## Gestion des volumes
 
 ### Voir les volumes
@@ -235,15 +243,13 @@ sudo chown -R 1000:1000 /volume1/docker/lmelp
 MONGO_DATA_PATH=/volume1/docker/lmelp/mongodb
 BACKUP_PATH=/volume1/docker/lmelp/backups
 AUDIO_PATH=/volume1/docker/lmelp/audios
-LOG_PATH=/volume1/docker/lmelp/logs
 MONGO_LOG_PATH=/volume1/docker/lmelp/mongodb-logs
 BABELIO_CACHE_PATH=/volume1/docker/lmelp/cache/babelio
 ```
 
-⚠️ `MONGO_LOG_PATH` ne doit **pas** être un sous-dossier de `LOG_PATH` : le conteneur
-`lmelp` chowne récursivement son propre volume `LOG_PATH` au démarrage (utilisateur
-non-root configurable), ce qui écraserait l'ownership `mongodb` des logs Mongo s'ils
-étaient imbriqués dedans.
+⚠️ `MONGO_LOG_PATH` ne doit **pas** être imbriqué dans le volume d'un autre service : un
+service qui chowne récursivement son propre volume au démarrage (utilisateur non-root
+configurable) écraserait l'ownership `mongodb` des logs Mongo.
 
 La communication entre services se fait via le réseau bridge Docker
 (`lmelp-network`) et les noms de service (ex. `mongo`) — aucune variable réseau
@@ -281,7 +287,7 @@ sudo chmod -R 755 /path/to/data/
 1. Vérifier que les containers sont running
 2. Vérifier les ports dans **Container details**
 3. Vérifier les règles firewall de l'hôte
-4. Tester depuis l'hôte : `curl http://localhost:8501`
+4. Tester depuis l'hôte : `curl http://localhost:8080/health`
 
 ## Sécurité
 

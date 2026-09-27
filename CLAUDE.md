@@ -84,6 +84,10 @@ héritées, etc.), leurs chemins hôte respectifs ne doivent **jamais** être im
 l'un dans l'autre — même en tant que sous-dossier a priori "logique". Vérifier ce
 risque à chaque nouveau volume ajouté à `docker-compose.yml`.
 
+Le service `lmelp` (Streamlit) a depuis été retiré de la stack (issue #71), mais la règle
+reste : `tests/test_mongodb_image.py::TestDockerComposeLogPathSeparation` vérifie que le
+défaut de `MONGO_LOG_PATH` n'est imbriqué avec aucun autre chemin de volume du compose.
+
 ### Dans l'image mongo, `HOME` pointe sur le volume de données
 
 **Piège découvert lors de l'issue #69** : l'image officielle `mongo` définit
@@ -230,6 +234,17 @@ contrôlant la colonne/le champ `Created` des conteneurs concernés (`docker ins
 <container> --format 'Created: {{.Created}}'` ou la colonne "Created" de la liste des
 conteneurs dans Portainer) — une date inchangée signifie qu'aucune recréation n'a
 réellement eu lieu, quelle que soit l'apparence de succès de la sauvegarde.
+
+### Retirer un service du compose laisse son conteneur en place
+
+**Rencontré lors de l'issue #71** (retrait du service Streamlit `lmelp`) : supprimer un
+service de `docker-compose.yml` ne supprime pas le conteneur déjà créé. `docker compose
+up -d` le signale comme orphelin mais le laisse tourner, et Portainer fait de même lors
+d'un « Update the stack » si l'option **Prune services** n'est pas cochée.
+
+**Règle** : après le retrait d'un service, redéployer avec `docker compose up -d
+--remove-orphans` (CLI) ou cocher **Prune services** (Portainer), puis vérifier que le
+conteneur a bien disparu (`docker ps -a`).
 
 ### Un conteneur tiers (ex: Automatisch) ne peut pas joindre la stack via `localhost` ou le hostname court du NAS
 

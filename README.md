@@ -7,7 +7,7 @@ Stack Docker complète pour déployer [LMELP (Le Masque et La Plume)](https://gi
 
 ## ✨ Fonctionnalités
 
-- **Stack complète** : MongoDB + LMELP App + Back-Office (Frontend + Backend)
+- **Stack complète** : MongoDB + application LMELP (back-office : Frontend + Backend)
 - **Intégration Calibre** : Accès optionnel à votre bibliothèque Calibre existante depuis le back-office
 - **Export Android** : Synchronisation automatique vers téléphone Android via ADB (optionnel)
 - **Transcription automatisée via PGX** : Transcription des épisodes via une station GPU dédiée sur le réseau local (optionnel)
@@ -53,9 +53,8 @@ docker compose ps
 
 ### Accès aux services
 
-- **LMELP App** (Streamlit) : http://localhost:8501
-- **Back-Office Frontend** : http://localhost:8080
-- **Back-Office API** : http://localhost:8000
+- **LMELP** (frontend web, installable en PWA) : http://localhost:8080
+- **API Backend** : http://localhost:8000
 - **MongoDB** : localhost:27018
 
 ## 📦 Services inclus
@@ -63,11 +62,10 @@ docker compose ps
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
 | **mongo** | ghcr.io/castorfou/lmelp-mongo:latest | 27018 | MongoDB + backup + rotation logs (anacron) |
-| **lmelp** | ghcr.io/castorfou/lmelp:latest | 8501 | Application Streamlit |
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
-| **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web |
+| **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web lmelp (PWA) |
 | **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Export vers Android via ADB |
-| **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions des clés SSH PGX (lmelp et backend) |
+| **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions des clés SSH PGX (backend et clé historique) |
 
 ## 📚 Documentation complète
 
@@ -95,24 +93,17 @@ GEMINI_API_KEY=votre_cle_gemini_ici
 OPENAI_API_KEY=votre_cle_openai_ici
 
 # 2. Configuration MongoDB (valeurs par défaut fonctionnelles)
-# ⚠️ Les variables sont dupliquées pour compatibilité entre images
-MONGO_HOST=localhost
 MONGO_PORT=27018
 MONGO_DATABASE=masque_et_la_plume
-DB_HOST=localhost
-DB_NAME=masque_et_la_plume
-MONGODB_URL=mongodb://localhost:27018/masque_et_la_plume
 
 # Chemins des volumes (valeurs par défaut)
 MONGO_DATA_PATH=./data/mongodb
 BACKUP_PATH=./data/backups
 AUDIO_PATH=./data/audios
-LOG_PATH=./data/logs
 MONGO_LOG_PATH=./data/mongodb-logs
 ```
 
-**Notes importantes** :
-- Les variables MongoDB apparaissent plusieurs fois car différentes images Docker utilisent des noms différents. À terme, cela sera rationalisé dans les applications sources.
+**Note importante** :
 - **Sur Portainer** : Utilisez des chemins absolus pour tous les volumes. Les chemins relatifs sont transformés par Portainer.
 
 ## 🗂️ Structure du projet
@@ -136,8 +127,9 @@ docker-lmelp/
 │   ├── mongodb/            # Données MongoDB
 │   ├── backups/            # Backups MongoDB
 │   ├── audios/             # Fichiers audio LMELP
-│   ├── logs/               # Logs applicatifs et MongoDB
-│   ├── pgx-keys/           # Clé SSH PGX historique (lmelp, optionnel)
+│   ├── mongodb-logs/       # Logs MongoDB (mongod, backup, rotation)
+│   ├── logs/lmelp-export/  # Logs du job anacron de lmelp-export
+│   ├── pgx-keys/           # Clé SSH PGX historique (optionnel)
 │   └── pgx-keys-backend/   # Clé SSH dédiée à la transcription PGX (backend, optionnel)
 └── docs/                   # Documentation MkDocs
     └── user/               # Documentation utilisateur
@@ -210,8 +202,11 @@ docker compose down
 # Mettre à jour les images
 docker compose pull && docker compose up -d
 
+# Supprimer les conteneurs des services retirés de docker-compose.yml
+docker compose up -d --remove-orphans
+
 # Redémarrer un service spécifique
-docker compose restart lmelp
+docker compose restart backend
 ```
 
 ## 🤝 Contribution
