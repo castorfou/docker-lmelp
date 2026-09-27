@@ -161,13 +161,13 @@ Le container `lmelp-export`:
 
 ## Publication automatique sur GitHub Release
 
-En complément de l'export vers un téléphone Android, le container `lmelp-export` propose la commande `export-and-publish-release`, qui exporte `lmelp.db`, génère des métadonnées (taille, SHA-256, date d'export) et publie le tout comme asset de la GitHub Release `data-latest` du repo `castorfou/lmelp-mobile` :
+En complément de l'export vers un téléphone Android, le container `lmelp-export` propose la commande `export-and-publish-release`, qui exporte `lmelp.db`, génère des métadonnées (taille, SHA-256, date d'export) et publie le tout comme asset de la GitHub Release `data-v{N}` du repo `castorfou/lmelp-mobile`, où `N` est la version du schéma Room courant de l'app (par exemple `data-v9`) :
 
 ```bash
 docker exec lmelp-export export-and-publish-release
 ```
 
-Un job `anacron` embarqué dans l'image déclenche cette commande automatiquement (cadence quotidienne), suivant le même pattern que la rotation de logs et le backup MongoDB du service `mongo`.
+Un job `anacron` embarqué dans l'image déclenche cette commande automatiquement (cadence quotidienne), suivant le même pattern que la rotation de logs et le backup MongoDB du service `mongo`. Ce job n'a pas d'heure fixe et tourne en UTC : sa fenêtre d'exécution, son ordonnancement par rapport à la synchronisation de la bibliothèque Calibre et la procédure de diagnostic sont décrits dans [De Calibre à l'app mobile](calibre-vers-app-mobile.md).
 
 ### Configuration requise : `GH_TOKEN`
 
@@ -199,7 +199,7 @@ Ces vérifications nécessitent un déploiement réel sur le NAS et ne peuvent p
 
 - [ ] Après un redémarrage ou une coupure d'alimentation du NAS, confirmer que le job anacron de `lmelp-export` se redéclenche correctement (par analogie avec les problèmes d'ownership déjà rencontrés sur l'anacron du service `mongo`, voir [castorfou/docker-lmelp#48](https://github.com/castorfou/docker-lmelp/issues/48) et [#51](https://github.com/castorfou/docker-lmelp/issues/51) — `lmelp-export` n'a toutefois pas de volume de sortie partagé équivalent à `/backups`, le risque est probablement moindre).
 - [ ] Consulter `${LMELP_EXPORT_LOG_PATH}/publish-data-release.log` sur l'hôte (par défaut `./data/logs/lmelp-export/publish-data-release.log`) pour confirmer que le job s'est bien exécuté et voir sa sortie.
-- [ ] Vérifier qu'un asset a bien été publié sur la release `data-latest` de `castorfou/lmelp-mobile` après le déclenchement du job (`gh release view data-latest --repo castorfou/lmelp-mobile`).
+- [ ] Vérifier qu'un asset a bien été publié sur la release `data-v{N}` de `castorfou/lmelp-mobile` après le déclenchement du job (`gh release list --repo castorfou/lmelp-mobile` pour identifier le tag courant, puis `gh release view data-v9 --repo castorfou/lmelp-mobile`).
 - [ ] Sur plusieurs jours d'usage réel, évaluer si la cadence quotidienne du job est adaptée, ou si elle doit être ajustée.
 
 ## Dépannage
@@ -336,4 +336,5 @@ Pour le supprimer complètement du déploiement, commenter ou retirer la section
 - [Installation](installation.md) - Configuration initiale de la stack
 - [Configuration](configuration.md) - Détails des variables d'environnement
 - [Calibre Setup](calibre-setup.md) - Intégration Calibre
+- [De Calibre à l'app mobile](calibre-vers-app-mobile.md) - Chaîne complète jusqu'à l'app et diagnostic
 - [lmelp-mobile#81](https://github.com/castorfou/lmelp-mobile/issues/81) - Issue originale
