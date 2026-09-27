@@ -530,7 +530,7 @@ Les nouveaux déploiements ne sont pas concernés. Pour un déploiement existant
 | [castorfou/lmelp-mobile#117](https://github.com/castorfou/lmelp-mobile/issues/117)           | Adapter le pipeline Whisper/PGX au NAS                                  | 🔵 Ouverte |
 | [castorfou/back-office-lmelp#261](https://github.com/castorfou/back-office-lmelp/issues/261) | Intégration Calibre échoue en lecture seule sur bibliothèque WAL active | ✅ Fermée  |
 | [castorfou/docker-lmelp#51](https://github.com/castorfou/docker-lmelp/issues/51)             | Logs backup/logrotate mongo (anacron) : ownership incohérent            | 🔵 Ouverte |
-| [castorfou/docker-lmelp#69](https://github.com/castorfou/docker-lmelp/issues/69)             | Logs mongosh du healthcheck écrits dans `/data/db` (Hyper Backup partial success) | 🔵 Ouverte |
+| [castorfou/docker-lmelp#69](https://github.com/castorfou/docker-lmelp/issues/69)             | Logs mongosh du healthcheck écrits dans `/data/db` (Hyper Backup partial success) | ✅ Fermée  |
 
 
 ## Historique
