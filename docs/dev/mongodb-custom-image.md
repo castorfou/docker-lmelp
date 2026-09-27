@@ -230,6 +230,41 @@ l'hôte, pas de l'image. L'entrypoint custom (section 7) les chowne automatiquem
 présent — aucune action manuelle n'est nécessaire côté hôte, quelle que soit l'ownership initiale
 du bind-mount.
 
+### `HOME` de mongosh hors du volume de données
+
+L'image officielle `mongo` définit `ENV HOME=/data/db`, et `/data/db` est aussi le home
+`passwd` du user `mongodb`. Sans précaution, `mongosh` écrirait ses fichiers de session
+(`$HOME/.mongodb/mongosh/`) dans le volume `MONGO_DATA_PATH`. mongosh crée un log par appel et
+purge les plus anciens : une sauvegarde fichier du volume (Hyper Backup, rsync) verrait alors
+des fichiers disparaître pendant la copie. L'image et le compose file évitent cela à trois
+niveaux :
+
+```dockerfile
+RUN printf 'mongosh:\n  disableLogging: true\n' > /etc/mongosh.conf && \
+    chmod 644 /etc/mongosh.conf && \
+    mkdir -p /home/mongodb && \
+    chown mongodb:mongodb /home/mongodb && \
+    usermod -d /home/mongodb mongodb
+```
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "HOME=/tmp mongosh --quiet --eval 'db.adminCommand(\"ping\")' || exit 1"]
+```
+
+| Niveau | Mécanisme | Appelants couverts |
+| ------ | --------- | ------------------ |
+| Config globale | `/etc/mongosh.conf` → `disableLogging: true` | Tous (healthcheck, scripts, init de l'entrypoint, consoles interactives) |
+| Home du user `mongodb` | `/home/mongodb` (lu par les scripts via `getent passwd`) | `backup_mongodb.sh`, `rotate_mongodb_logs.sh` |
+| Healthcheck | `HOME=/tmp` (root) | Healthcheck `docker-compose.yml` |
+
+Root (healthcheck) et `mongodb` (scripts) utilisent volontairement des `HOME` **distincts** : un
+`/tmp/.mongodb` créé d'abord par root ne serait pas accessible en écriture aux scripts, qui
+tournent en `mongodb` après `gosu`, et mongosh afficherait un avertissement `EACCES` à chaque
+exécution.
+
+`mongod` lui-même n'utilise pas `HOME` : le changement de home `passwd` ne l'affecte pas.
+
 ## Performance
 
 ### Impact de la rotation

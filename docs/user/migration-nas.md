@@ -446,6 +446,49 @@ Aucune notification n'est envoyée à chaque tentative de retry individuelle
   actif ou retry en attente) renvoie simplement `{"status":
   "already_running"}` — sans effet indésirable, sans doublon.
 
+## Mise à jour d'un déploiement existant — dossier `.mongodb` dans le volume MongoDB
+
+L'image `lmelp-mongo` et le healthcheck du service `mongo` gardent les fichiers de session
+de `mongosh` hors du volume de données (`MONGO_DATA_PATH`) : logs de session désactivés via
+`/etc/mongosh.conf`, et `HOME` de `mongosh` hors de `/data/db`.
+
+!!! warning "Symptôme sur un déploiement plus ancien : Hyper Backup en « partial success »"
+    Une stack déployée avec une version antérieure de l'image et du `docker-compose.yml`
+    écrit un fichier de log `mongosh` toutes les 10 s (à chaque healthcheck) dans
+    `MONGO_DATA_PATH/.mongodb/mongosh/`, et mongosh supprime les plus anciens au fil de
+    l'eau. Une sauvegarde au niveau fichiers du dossier `docker` (Hyper Backup, rsync) voit
+    donc des fichiers disparaître en cours de copie (`rsync code 24 — file has vanished`
+    dans `/var/log/rsync.error`) et se termine en « partial success ».
+
+Les nouveaux déploiements ne sont pas concernés. Pour un déploiement existant :
+
+1. **Redéployer la stack** depuis Portainer (**Pull and redeploy**, ou attendre la mise
+   à jour GitOps) pour récupérer le nouveau `docker-compose.yml` et la nouvelle image
+   `lmelp-mongo`. Vérifier ensuite que le conteneur a bien été recréé : sa date `Created`
+   doit avoir changé.
+2. **Vérifier** que `mongo` repasse `healthy`, puis qu'aucun nouveau log n'apparaît :
+   ```bash
+   # en SSH sur le NAS, attendre une minute
+   sudo ls -la /volume1/docker/lmelp/mongodb/.mongodb/mongosh | tail -3
+   ```
+   Les horodatages ne doivent plus avancer.
+3. **Supprimer le dossier hérité**. Il ne contient que des fichiers de session mongosh,
+   aucune donnée de la base :
+   ```bash
+   sudo rm -rf /volume1/docker/lmelp/mongodb/.mongodb
+   ```
+   On peut aussi le supprimer depuis File Station, après avoir coché *Afficher les
+   fichiers cachés*.
+4. **Relancer la sauvegarde** : Hyper Backup → `rsync Docker` → **Back Up Now**. La
+   tâche doit repasser en vert.
+
+!!! note "Sauvegarde du volume MongoDB par Hyper Backup"
+    Comme indiqué à l'étape 3, les fichiers WiredTiger copiés à chaud ne constituent pas
+    une sauvegarde fiable de la base. La vraie sauvegarde est le `mongodump`
+    hebdomadaire dans `BACKUP_PATH` (voir [Backups & Restauration](backup-restore.md)) :
+    c'est ce dossier `backups` qu'Hyper Backup doit copier. Le dossier `mongodb` peut
+    rester dans la tâche, mais il ne sert pas de source de restauration.
+
 ## Limitations connues
 
 - **Export Android (ADB)** : `lmelp-export` se connecte à un serveur ADB en TCP — cela
@@ -487,6 +530,7 @@ Aucune notification n'est envoyée à chaque tentative de retry individuelle
 | [castorfou/lmelp-mobile#117](https://github.com/castorfou/lmelp-mobile/issues/117)           | Adapter le pipeline Whisper/PGX au NAS                                  | 🔵 Ouverte |
 | [castorfou/back-office-lmelp#261](https://github.com/castorfou/back-office-lmelp/issues/261) | Intégration Calibre échoue en lecture seule sur bibliothèque WAL active | ✅ Fermée  |
 | [castorfou/docker-lmelp#51](https://github.com/castorfou/docker-lmelp/issues/51)             | Logs backup/logrotate mongo (anacron) : ownership incohérent            | 🔵 Ouverte |
+| [castorfou/docker-lmelp#69](https://github.com/castorfou/docker-lmelp/issues/69)             | Logs mongosh du healthcheck écrits dans `/data/db` (Hyper Backup partial success) | 🔵 Ouverte |
 
 
 ## Historique
