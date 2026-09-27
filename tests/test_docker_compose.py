@@ -5,6 +5,7 @@ This test suite verifies that services are correctly configured,
 particularly focusing on healthcheck endpoints.
 """
 
+import pytest
 import yaml
 
 
@@ -242,123 +243,115 @@ class TestLmelpExportLogVolumeConfiguration:
             "Log volume should be configurable via LMELP_EXPORT_LOG_PATH"
         )
 
-    def test_log_volume_default_nested_under_lmelp_log_path(self):
-        """Verify the default log host path is a subdirectory of lmelp's LOG_PATH.
+    def test_log_volume_default_path(self):
+        """Verify the default host path of the lmelp-export log volume.
 
-        Unlike MONGO_LOG_PATH (issue #51), nesting here is safe: lmelp-export
-        runs its anacron job as root (no gosu/privilege drop in
-        Dockerfile.export), so lmelp's periodic chown -R of LOG_PATH cannot
-        break its writes -- root ignores file ownership.
+        Kept at ./data/logs/lmelp-export so existing deployments need no
+        migration. Nesting is harmless: lmelp-export runs anacron as root,
+        and no other service chowns ./data/logs (issue #51 rule).
         """
         service = self._get_lmelp_export()
         volumes = service.get("volumes", [])
         log_volume = next((v for v in volumes if ":/var/log" in str(v)), None)
         assert log_volume is not None, "Log volume should exist"
         assert "./data/logs/lmelp-export" in str(log_volume), (
-            "lmelp-export log path should default to a subdirectory of "
-            "LOG_PATH (./data/logs/lmelp-export)"
+            "lmelp-export log path should default to ./data/logs/lmelp-export"
         )
 
 
-class TestPgxConfiguration:
-    """Tests for PGX transcription environment variables on lmelp (issue #58).
+class TestStreamlitServiceRemoved:
+    """Tests for the removal of the historical Streamlit app (issue #71).
 
-    The lmelp image (castorfou/lmelp) drives automated transcription via a
-    dedicated GPU station (PGX) reachable over SSH. Its entrypoint generates
-    and persists a dedicated SSH key under PGX_SSH_KEY_PATH (on the /app/keys
-    volume) at first startup -- see docs/user/transcription-pgx.md in the
-    lmelp repo.
+    back-office-lmelp replaced the Streamlit lmelp app (back-office-lmelp#302)
+    and was renamed "lmelp" (back-office-lmelp#315). The stack no longer runs
+    the lmelp service / lmelp-frontoffice container (port 8501), and the public
+    URL lmelp.ascot63.synology.me now targets the back-office frontend.
     """
 
-    def _get_lmelp(self):
+    REMOVED_ENV_VARS = (
+        "LMELP_PORT",
+        "LMELP_MODE",
+        "DB_LOGS",
+        "RSS_LMELP_URL",
+        "LOG_PATH",
+    )
+
+    @staticmethod
+    def _load_compose() -> dict:
         with open("docker-compose.yml") as f:
-            config = yaml.safe_load(f)
-        return config["services"]["lmelp"]
+            return yaml.safe_load(f)
 
-    def _get_env_list(self, service):
-        """Return service environment as a list of strings."""
-        env = service.get("environment", [])
-        if isinstance(env, dict):
-            return [f"{k}={v}" for k, v in env.items()]
-        return env
-
-    def test_lmelp_has_pgx_host_env(self):
-        """Verify that lmelp defines a PGX_HOST environment variable."""
-        service = self._get_lmelp()
-        env_list = self._get_env_list(service)
-        env_keys = [e.split("=")[0] for e in env_list]
-        assert "PGX_HOST" in env_keys, (
-            "lmelp should define PGX_HOST environment variable"
+    def test_lmelp_service_removed(self):
+        """The Streamlit lmelp service is no longer defined."""
+        assert "lmelp" not in self._load_compose()["services"], (
+            "the Streamlit lmelp service should be removed from docker-compose.yml"
         )
 
-    def test_lmelp_has_pgx_user_env(self):
-        """Verify that lmelp defines a PGX_USER environment variable."""
-        service = self._get_lmelp()
-        env_list = self._get_env_list(service)
-        env_keys = [e.split("=")[0] for e in env_list]
-        assert "PGX_USER" in env_keys, (
-            "lmelp should define PGX_USER environment variable"
+    def test_no_lmelp_frontoffice_container(self):
+        """No service still runs the lmelp-frontoffice container."""
+        services = self._load_compose()["services"]
+        names = [s.get("container_name") for s in services.values()]
+        assert "lmelp-frontoffice" not in names
+
+    def test_streamlit_port_not_published(self):
+        """No service publishes the Streamlit port 8501."""
+        services = self._load_compose()["services"]
+        ports = [str(p) for s in services.values() for p in s.get("ports", [])]
+        assert not any("8501" in p for p in ports), (
+            f"port 8501 (Streamlit) should no longer be published, got {ports}"
         )
 
-    def test_lmelp_has_pgx_ssh_key_path_env(self):
-        """Verify PGX_SSH_KEY_PATH is fixed to the persisted key location."""
-        service = self._get_lmelp()
-        env_list = self._get_env_list(service)
-        key_path_entry = next(
-            (e for e in env_list if e.startswith("PGX_SSH_KEY_PATH=")), None
-        )
-        assert key_path_entry is not None, "PGX_SSH_KEY_PATH should be defined"
-        assert (
-            key_path_entry
-            == "PGX_SSH_KEY_PATH=/app/keys/pgx_lmelp_ed25519"  # pragma: allowlist secret
-        ), "PGX_SSH_KEY_PATH should be fixed to /app/keys/pgx_lmelp_ed25519"
+    def test_compose_no_longer_references_streamlit_variables(self):
+        """docker-compose.yml no longer reads the Streamlit-only variables."""
+        import re
 
-    def test_lmelp_has_pgx_remote_audio_root_env(self):
-        """Verify that lmelp defines a PGX_REMOTE_AUDIO_ROOT environment variable."""
-        service = self._get_lmelp()
-        env_list = self._get_env_list(service)
-        env_keys = [e.split("=")[0] for e in env_list]
-        assert "PGX_REMOTE_AUDIO_ROOT" in env_keys, (
-            "lmelp should define PGX_REMOTE_AUDIO_ROOT environment variable"
+        with open("docker-compose.yml") as f:
+            content = f.read()
+        referenced = set(re.findall(r"\$\{([A-Z_]+)", content))
+        leftovers = referenced.intersection(self.REMOVED_ENV_VARS)
+        assert not leftovers, (
+            f"docker-compose.yml still references Streamlit variables: {leftovers}"
         )
 
-    def test_lmelp_has_pgx_remote_transcription_root_env(self):
-        """Verify that lmelp defines a PGX_REMOTE_TRANSCRIPTION_ROOT env variable."""
-        service = self._get_lmelp()
-        env_list = self._get_env_list(service)
-        env_keys = [e.split("=")[0] for e in env_list]
-        assert "PGX_REMOTE_TRANSCRIPTION_ROOT" in env_keys, (
-            "lmelp should define PGX_REMOTE_TRANSCRIPTION_ROOT environment variable"
-        )
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    def test_env_examples_drop_streamlit_variables(self, env_file):
+        """The .env templates no longer define the Streamlit-only variables."""
+        import re
 
-    def test_lmelp_has_pgx_keys_volume(self):
-        """Verify that lmelp mounts a persistent volume on /app/keys."""
-        service = self._get_lmelp()
-        volumes = service.get("volumes", [])
-        has_pgx_keys_volume = any(":/app/keys" in str(v) for v in volumes)
-        assert has_pgx_keys_volume, (
-            "lmelp should mount a volume for /app/keys so the dedicated PGX "
-            "SSH key survives container recreation"
-        )
+        with open(env_file) as f:
+            defined = set(re.findall(r"^([A-Z_]+)=", f.read(), re.MULTILINE))
+        leftovers = defined.intersection(self.REMOVED_ENV_VARS)
+        assert not leftovers, f"{env_file} still defines {sorted(leftovers)}"
 
-    def test_pgx_keys_volume_uses_env_variable(self):
-        """Verify that the PGX keys volume path is configurable via PGX_KEYS_PATH."""
-        service = self._get_lmelp()
-        volumes = service.get("volumes", [])
-        pgx_keys_volume = next((v for v in volumes if ":/app/keys" in str(v)), None)
-        assert pgx_keys_volume is not None, "PGX keys volume should exist"
-        assert "PGX_KEYS_PATH" in str(pgx_keys_volume), (
-            "PGX keys volume should be configurable via PGX_KEYS_PATH"
-        )
+    def test_docs_no_longer_mention_lmelp_bo(self):
+        """Acceptance criterion: no more lmelp-bo in README.md or docs/
+        (docs/claude/memory/ keeps the project history and is excluded)."""
+        from pathlib import Path
+
+        files = [Path("README.md")] + [
+            p for p in Path("docs").rglob("*.md") if "claude/memory" not in p.as_posix()
+        ]
+        offenders = [str(p) for p in files if "lmelp-bo" in p.read_text()]
+        assert not offenders, f"lmelp-bo is still mentioned in {offenders}"
+
+    def test_reverse_proxy_lmelp_targets_backoffice_frontend(self):
+        """The DSM reverse proxy rule 'lmelp' now targets the back-office
+        frontend (port 8081 on the NAS), not Streamlit (8501)."""
+        with open("docs/user/migration-nas.md") as f:
+            content = f.read()
+        marker = "- Reverse Proxy Name: lmelp\n"
+        assert marker in content, "reverse proxy rule 'lmelp' should be documented"
+        rule = content.split(marker, 1)[1].split("\n## ", 1)[0]
+        assert "Port: 8081" in rule, "the 'lmelp' rule should target port 8081"
+        assert "8501" not in rule, "the 'lmelp' rule should no longer target 8501"
 
 
 class TestBackendAudioSyncConfiguration:
     """Tests for the backend audio volume + RSS sync env vars (issue #64).
 
     back-office-lmelp#295 adds `POST /api/rss/sync`, which downloads audio
-    files for new "livres" episodes. The backend service needs the same
-    AUDIO_PATH volume as lmelp (shared host directory, no duplication) plus
-    the env vars read by back-office-lmelp's settings module.
+    files for new "livres" episodes. The backend service needs the AUDIO_PATH
+    volume plus the env vars read by back-office-lmelp's settings module.
     """
 
     def _get_backend(self):
@@ -381,8 +374,7 @@ class TestBackendAudioSyncConfiguration:
         assert has_audio_volume, "backend should mount a volume for /app/audios"
 
     def test_audio_volume_uses_env_variable(self):
-        """Verify that the audio volume path is configurable via AUDIO_PATH,
-        the same host variable used by the lmelp service (shared directory)."""
+        """Verify that the audio volume path is configurable via AUDIO_PATH."""
         backend = self._get_backend()
         volumes = backend.get("volumes", [])
         audio_volume = next((v for v in volumes if ":/app/audios" in str(v)), None)
@@ -447,9 +439,9 @@ class TestBackendPgxConfiguration:
 
     back-office-lmelp#302 ported the PGX transcription pipeline from lmelp to
     the backend service (page /transcription-pgx, endpoints /api/pgx/*). The
-    backend gets its own dedicated SSH key (pgx_ed25519), distinct from
-    lmelp's (pgx_lmelp_ed25519, issue #58) -- both configurations coexist in
-    docker-compose.yml.
+    backend gets its own dedicated SSH key (pgx_ed25519), distinct from the
+    historical key of the removed Streamlit lmelp service (pgx_lmelp_ed25519,
+    issues #58 and #71).
     """
 
     def _get_backend(self):
