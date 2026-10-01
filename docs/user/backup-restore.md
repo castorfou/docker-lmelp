@@ -356,7 +356,7 @@ Restaurer sur une instance de test pour vérifier l'intégrité :
 
 ```bash
 # Démarrer un MongoDB temporaire
-docker run -d --name mongo-test -p 27018:27017 mongo:latest
+docker run -d --name mongo-test -p 27018:27017 mongo:8
 
 # Restaurer le backup
 mongorestore \
@@ -439,4 +439,5 @@ done
 ## Prochaines étapes
 
 - [Configuration](configuration.md) : Personnaliser la rétention et planification
+- [Montée de version de MongoDB](mongodb-upgrade.md) : Changer de version majeure après un backup
 - [Déploiement Portainer](portainer.md) : Gérer les backups via l'interface

@@ -267,7 +267,7 @@ docker images | grep lmelp
 # Supprimer les images
 docker rmi ghcr.io/castorfou/lmelp-frontend:latest
 docker rmi ghcr.io/castorfou/lmelp-backend:latest
-docker rmi mongo:latest
+docker rmi ghcr.io/castorfou/lmelp-mongo:latest
 ```
 
 ## Prochaines étapes
