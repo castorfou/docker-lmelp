@@ -6,7 +6,12 @@
 # powered off during scheduled cron times.
 # ============================================================================
 
-FROM mongo:latest
+# Pinned to a major version, never `latest` (issue #74): mongod only opens
+# data files whose featureCompatibilityVersion (FCV) belongs to the previous
+# major, so a floating tag jumping to the next major on a rebuild leaves the
+# container in a restart loop (exit code 62). Major upgrades are done one
+# version at a time, see docs/user/mongodb-upgrade.md.
+FROM mongo:8
 
 # Install anacron and required utilities
 RUN apt-get update && \
