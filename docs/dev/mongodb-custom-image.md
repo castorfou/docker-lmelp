@@ -15,13 +15,29 @@ Pour résoudre ces problèmes, une image custom a été créée avec anacron int
 ### 1. Extension de l'image officielle
 
 ```dockerfile
-FROM mongo:latest
+FROM mongo:8
 ```
 
 **Raison** : Partir de l'image officielle garantit :
 - Compatibilité avec MongoDB
-- Mises à jour de sécurité automatiques (via Watchtower)
+- Correctifs de la branche 8.x à chaque reconstruction de l'image, déployés ensuite par Watchtower
 - Pas de réinvention de la roue
+
+**Version majeure épinglée** : le tag désigne une majeure (`mongo:8`), jamais `latest`.
+`mongod` n'ouvre que des données dont la `featureCompatibilityVersion` (FCV) appartient à
+la majeure précédente ; un tag flottant qui change de majeure lors d'une reconstruction
+laisse le conteneur en redémarrage permanent (code de sortie 62). Un changement de majeure
+se fait donc en modifiant ce `FROM`, selon la procédure de
+[montée de version](../user/mongodb-upgrade.md).
+
+`tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse tout tag non numérique,
+dans le Dockerfile comme pour les images `mongo` officielles des fichiers compose, et
+`test_mongod_version_matches_pinned_base_image` compare le binaire de l'image construite au
+tag épinglé.
+
+**Override local `docker-compose.mongo7.yml`** : remplace l'image par l'officielle
+`mongo:7.0` (sans anacron ni scripts) sur les postes dont le noyau Linux, de 6.19 à 7.0.13,
+empêche MongoDB 8.x de démarrer. Il exige des données en FCV 7.0.
 
 ### 2. Utilisation d'anacron au lieu de cron
 

@@ -1,4 +1,7 @@
 # Local uniquement : MongoDB 8.x refuse de démarrer sur noyau 6.19–7.0.13 (SERVER-121912)
+# Le répertoire MONGO_DATA_PATH doit être en featureCompatibilityVersion 7.0 : un mongod 7.0
+# n'ouvre pas des données écrites par MongoDB 8.x (copie du volume du NAS, par exemple).
+# Pour reprendre ces données ici, restaurer un dump (mongorestore) dans un répertoire vide.
 services:
   mongo:
     image: mongo:7.0

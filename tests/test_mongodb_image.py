@@ -5,10 +5,24 @@ This test suite verifies that the lmelp-mongo image is correctly configured
 with both log rotation and backup using anacron.
 """
 
+import re
 import subprocess
 import time
 
 import pytest
+
+
+# A version tag such as "8", "8.3" or "8.3.1" -- never "latest" (issue #74).
+PINNED_MONGO_TAG = re.compile(r"^\d+(\.\d+){0,2}$")
+
+
+def _mongo_base_image_tag() -> str | None:
+    """Tag of the official mongo image mongodb.Dockerfile builds FROM, or
+    None when the FROM line carries no tag (which means `latest`)."""
+    with open("mongodb.Dockerfile") as f:
+        match = re.search(r"^FROM\s+mongo(?::(\S+))?\s*$", f.read(), re.MULTILINE)
+    assert match, "mongodb.Dockerfile should build FROM the official mongo image"
+    return match.group(1)
 
 
 class TestMongoDBImageBuild:
@@ -127,8 +141,6 @@ class TestDockerComposeLogPathSeparation:
     `mongodb`. See CLAUDE.md, "Ne jamais imbriquer les volumes"."""
 
     def test_mongo_log_path_default_is_not_nested_with_other_volumes(self):
-        import re
-
         with open("docker-compose.yml") as f:
             content = f.read()
 
@@ -150,6 +162,42 @@ class TestDockerComposeLogPathSeparation:
                 f"{var} default ({path!r}) must not be nested under "
                 f"MONGO_LOG_PATH default ({mongo_log_path!r}) (issue #51)"
             )
+
+
+class TestMongoBaseImagePinned:
+    """Issue #74: the base image must be pinned to a MongoDB major version.
+
+    A floating tag (`mongo:latest`) silently jumps to the next major on the
+    next image build. mongod only opens data files whose
+    featureCompatibilityVersion belongs to the previous major, one major at
+    a time, so the rebuilt image would exit with code 62 in a restart loop.
+    See docs/user/mongodb-upgrade.md."""
+
+    def test_dockerfile_base_image_is_pinned_to_a_major_version(self):
+        tag = _mongo_base_image_tag()
+        assert tag is not None and PINNED_MONGO_TAG.match(tag), (
+            f"mongodb.Dockerfile must start FROM mongo:<version> (e.g. mongo:8), "
+            f"not a floating tag: got {tag!r} (issue #74)"
+        )
+
+    def test_compose_files_do_not_use_floating_official_mongo_tag(self):
+        """Compose files pulling the official image directly (e.g. the local
+        docker-compose.mongo7.yml override) are exposed to the same jump."""
+        import glob
+
+        import yaml
+
+        for compose_file in sorted(glob.glob("docker-compose*.yml")):
+            with open(compose_file) as f:
+                services = yaml.safe_load(f).get("services", {})
+            for name, service in services.items():
+                repository, _, tag = service.get("image", "").partition(":")
+                if repository != "mongo":
+                    continue
+                assert PINNED_MONGO_TAG.match(tag), (
+                    f"{compose_file}: service {name!r} must pin the official "
+                    f"mongo image to a version, got tag {tag!r} (issue #74)"
+                )
 
 
 class TestMongoDBScriptSelfDefense:
@@ -692,6 +740,33 @@ class TestMongoDBImageContent:
             )
         finally:
             subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
+
+    def test_mongod_version_matches_pinned_base_image(self):
+        """Issue #74: the mongod binary shipped in the image must be the
+        version the Dockerfile pins, so a rebuild can never bring in a major
+        the existing data files are not ready for."""
+        result = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--entrypoint",
+                "mongod",
+                "lmelp-mongo:test",
+                "--version",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        version = re.search(r"db version v(\S+)", result.stdout)
+        assert version, f"Unexpected `mongod --version` output: {result.stdout}"
+
+        pinned = _mongo_base_image_tag().split(".")
+        assert version.group(1).split(".")[: len(pinned)] == pinned, (
+            f"mongod {version.group(1)} does not match the pinned base image "
+            f"tag mongo:{'.'.join(pinned)}"
+        )
 
     def test_mongosh_global_config_disables_logging(self):
         """Issue #69: /etc/mongosh.conf must exist in the image, be readable

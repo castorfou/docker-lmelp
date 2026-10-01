@@ -61,7 +61,7 @@ docker compose ps
 
 | Service | Image | Port | Description |
 |---------|-------|------|-------------|
-| **mongo** | ghcr.io/castorfou/lmelp-mongo:latest | 27018 | MongoDB + backup + rotation logs (anacron) |
+| **mongo** | ghcr.io/castorfou/lmelp-mongo:latest | 27018 | MongoDB 8 + backup + rotation logs (anacron) |
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web lmelp (PWA) |
 | **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Export vers Android via ADB |
@@ -79,6 +79,7 @@ La documentation complète est disponible sur **[castorfou.github.io/docker-lmel
 - **[Configuration PGX](https://castorfou.github.io/docker-lmelp/user/configuration/#variables-pgx-transcription-automatisee)** : Transcription automatisée via station GPU dédiée (optionnel)
 - **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
 - **[Rotation des logs MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-log-rotation/)** : Gestion automatique des logs
+- **[Version de MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-upgrade/)** : Version embarquée, montée de version majeure et dépannage
 - **[Déploiement Portainer](https://castorfou.github.io/docker-lmelp/user/portainer/)** : Installation via interface graphique
 - **[Migration vers un NAS Synology](https://castorfou.github.io/docker-lmelp/user/migration-nas/)** : Migrer une stack existante depuis un laptop
 
@@ -136,6 +137,7 @@ docker-lmelp/
         ├── installation.md
         ├── configuration.md
         ├── backup-restore.md
+        ├── mongodb-upgrade.md
         ├── portainer.md
         └── migration-nas.md
 ```

@@ -110,6 +110,29 @@ avec `disableLogging: true`, et home du user `mongodb` déplacé vers `/home/mon
   d'abord par root (ex. `/tmp/.mongodb` créé par le healthcheck) ferait retomber les
   scripts, qui tournent en `mongodb` après `gosu`, sur l'`EACCES` de l'issue #54.
 
+### Ne jamais baser l'image mongo sur un tag flottant
+
+**Piège découvert lors de l'issue #74** : `mongodb.Dockerfile` partait de
+`FROM mongo:latest`. Quand `latest` est passé en MongoDB 9.0, le prochain build de
+`lmelp-mongo` (déclenché par n'importe quel commit touchant le Dockerfile, les scripts ou
+`config/mongod.conf`) aurait livré un `mongod` 9.0 à Watchtower. Or `mongod` n'ouvre que
+des données dont la `featureCompatibilityVersion` (FCV) appartient à la majeure
+précédente : 9.0 accepte les FCV 8.0 et 8.3, pas la 8.2 en place. Résultat : code de
+sortie 62 et redémarrage en boucle.
+
+**Règles** :
+- Le `FROM` de `mongodb.Dockerfile` désigne une majeure (`mongo:8`), jamais `latest`.
+  `tests/test_mongodb_image.py::TestMongoBaseImagePinned` le vérifie, ainsi que pour les
+  images `mongo` officielles des fichiers `docker-compose*.yml`.
+- Une montée de majeure est manuelle : sauvegarde, une majeure à la fois, puis
+  `setFeatureCompatibilityVersion` avec `confirm: true`. Procédure :
+  `docs/user/mongodb-upgrade.md`.
+- Un diagnostic de version relève **le binaire et la FCV** : la FCV ne suit jamais le
+  binaire toute seule. `mongosh --eval 'a; b'` n'affiche que `b` ; regrouper les deux
+  valeurs dans un seul `printjson({...})`.
+- `docker-compose.mongo7.yml` (override local, `mongo:7.0`) exige des données en FCV 7.0 :
+  une copie du volume du NAS ne s'y ouvre pas.
+
 ### L'anacron de `lmelp-export` n'a pas d'heure fixe, et tourne en UTC
 
 **Piège découvert lors de l'issue #68 / lmelp-mobile#135** : l'app mobile avait
