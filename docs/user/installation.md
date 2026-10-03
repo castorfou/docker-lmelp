@@ -226,6 +226,8 @@ BACKEND_PORT=8001
 
 Si Watchtower tourne sur votre système, les images seront automatiquement mises à jour.
 
+Sur le NAS, les workflows qui publient les images `ghcr.io/castorfou/lmelp-*` déclenchent aussi Watchtower via son API HTTP juste après le push : la mise à jour est immédiate, sans attendre le poll hebdomadaire (secret GitHub `WATCHTOWER_TOKEN`, configuration dans [castorfou/dockers](https://github.com/castorfou/dockers)).
+
 ### Mise à jour manuelle
 
 ```bash

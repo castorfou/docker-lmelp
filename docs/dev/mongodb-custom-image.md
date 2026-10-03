@@ -379,6 +379,7 @@ L'image est automatiquement construite et publiée sur `ghcr.io` via GitHub Acti
 - **Déclencheurs** : Modification du Dockerfile, scripts, ou configuration
 - **Tags** : `latest`, versions sémantiques, SHA du commit
 - **Registry** : `ghcr.io/castorfou/lmelp-mongo:latest`
+- **Déploiement** : sur `main`, l'étape « Mise à jour sur le NAS (Watchtower) » appelle l'API Watchtower du NAS, qui pull l'image et redémarre `lmelp-mongo` (secret `WATCHTOWER_TOKEN`)
 
 **Avantages** :
 - Pas besoin de build local pour le déploiement
