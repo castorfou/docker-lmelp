@@ -5,8 +5,9 @@ nightly-sync.sh runs on the NAS host (DSM Task Scheduler, not in a container):
 it stops the calibre-web-automated (CWA) container, rsyncs the Calibre Desktop
 library (synced to the NAS by Synology Drive) into CWA's books/ folder, then
 restarts CWA. The lmelp-export container reads that CWA library through
-CALIBRE_HOST_PATH, so this script must always complete before lmelp-export's
-daily anacron run (issue #68, lmelp-mobile#135).
+CALIBRE_HOST_PATH: the mobile app sees the synced library at the next run of
+lmelp-export's publish loop, at most PUBLISH_INTERVAL later (issue #68,
+lmelp-mobile#135, issue #77).
 """
 
 import os
@@ -178,6 +179,26 @@ class TestCalibreToMobileDocs:
     )
     def test_page_covers_each_link_of_the_chain(self, needle):
         assert needle in self.PAGE.read_text()
+
+    @pytest.mark.parametrize("needle", ["PUBLISH_INTERVAL", "ntfy", "last_status"])
+    def test_page_describes_publish_loop(self, needle):
+        """lmelp-mobile#153 replaced the daily anacron job by a publish loop."""
+        assert needle in self.PAGE.read_text()
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "docs/user/calibre-vers-app-mobile.md",
+            "scripts/nas/nightly-sync.sh",
+            "CLAUDE.md",
+        ],
+    )
+    @pytest.mark.parametrize("stale", ["anacrontab", "/var/spool/anacron", "00:10"])
+    def test_no_stale_anacron_schedule(self, path, stale):
+        assert stale not in Path(path).read_text(), (
+            f"{path} still describes the daily anacron export ({stale!r}), "
+            "replaced by the publish loop (issue #77)"
+        )
 
 
 class TestNoStaleDataLatestTag:
