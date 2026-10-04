@@ -133,25 +133,30 @@ sortie 62 et redémarrage en boucle.
 - `docker-compose.mongo7.yml` (override local, `mongo:7.0`) exige des données en FCV 7.0 :
   une copie du volume du NAS ne s'y ouvre pas.
 
-### L'anacron de `lmelp-export` n'a pas d'heure fixe, et tourne en UTC
+### `lmelp-export` publie en boucle : la donnée Calibre arrive au plus un intervalle plus tard
 
 **Piège découvert lors de l'issue #68 / lmelp-mobile#135** : l'app mobile avait
 systématiquement un jour de retard sur Calibre, sans aucune erreur. `nightly-sync.sh`
 (tâche DSM qui alimente la bibliothèque CWA lue via `CALIBRE_HOST_PATH`) tournait après
-l'export `lmelp-export`, qui lisait donc toujours la bibliothèque de la veille.
+l'unique export quotidien (anacron, en UTC), qui lisait donc toujours la bibliothèque de
+la veille.
 
-L'anacron de l'image `lmelp-mobile-export` (`1 10` dans `/etc/anacrontab`, boucle
-`anacron -d` toutes les heures) raisonne en **dates**, pas en heures. Il part au premier
-passage horaire après minuit, plus 10 min, donc entre 00:10 et 01:10. La minute exacte
-dépend du démarrage du conteneur. Sans `TZ`, le conteneur est en **UTC**, alors que le
-Planificateur DSM est en heure de Paris. `/var/spool/anacron` n'est pas persisté : chaque
-recréation (Watchtower, redéploiement) relance un export environ 10 min après le démarrage.
+**État actuel (issue #77 / lmelp-mobile#153)** : l'anacron a disparu de l'image
+`lmelp-mobile-export`. L'entrypoint lance `publish-loop &`, qui exécute
+`export-and-publish-release` au démarrage puis toutes les `PUBLISH_INTERVAL` s (défaut
+3600, `0` désactive la boucle). L'ordre entre `nightly-sync.sh` et l'export n'a plus
+d'importance : la donnée arrive au plus un intervalle après la fin de la synchro.
 
 **Règles** :
-- `scripts/nas/nightly-sync.sh` doit avoir **fini** avant 00:10 UTC. Tout changement
-  d'horaire de l'un des deux côtés se recalcule en UTC.
-- Ne pas ajouter `TZ=Europe/Paris` à `lmelp-export` sans revoir l'horaire DSM : la
-  fenêtre d'export passerait à 00:10 heure de Paris, 5 min après nightly-sync (00:05).
+- `lmelp-export` lit les mêmes `NTFY_SERVER_URL` / `NTFY_TOPIC` que `backend` (topic
+  partagé, titres `lmelp-mobile - …`). Il notifie chaque publication réelle, le 1er échec
+  et le rétablissement, en mémorisant l'état dans `/var/lib/lmelp-export/last_status`.
+  Ce dossier doit rester sur un volume (`LMELP_EXPORT_STATE_PATH`) : sinon une recréation
+  pendant une panne repart de `ok` et la notification de rétablissement ne part jamais.
+- Chaque recréation du conteneur (Watchtower, redéploiement) déclenche un export
+  immédiat ; deux exports simultanés sont exclus par un `flock` dans l'image.
+- `publish-data-release.log` reçoit un bloc `=== <date UTC> : ok|failed ===` par passage,
+  sans rotation dans l'image (croissance jugée négligeable).
 - `nightly-sync.sh` utilise `set -uo pipefail` **sans `-e`**, volontairement : il gère
   chaque erreur lui-même pour que le Planificateur DSM affiche un message clair.
 

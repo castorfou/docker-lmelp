@@ -212,9 +212,9 @@ class TestLmelpExportGhTokenConfiguration:
 class TestLmelpExportLogVolumeConfiguration:
     """Tests for lmelp-export log persistence (issue #56).
 
-    The anacron job embedded in the ghcr.io/castorfou/lmelp-mobile-export
-    image writes to /var/log/publish-data-release.log *inside* the
-    container. Without a bind-mounted volume on /var/log, that log is lost
+    The publish-loop embedded in the ghcr.io/castorfou/lmelp-mobile-export
+    image (lmelp-mobile#153) writes to /var/log/publish-data-release.log
+    *inside* the container. Without a bind-mounted volume on /var/log, that log is lost
     whenever the container is recreated and never visible on the host.
     """
 
@@ -229,8 +229,8 @@ class TestLmelpExportLogVolumeConfiguration:
         volumes = service.get("volumes", [])
         has_log_volume = any(":/var/log" in str(v) for v in volumes)
         assert has_log_volume, (
-            "lmelp-export should mount a volume on /var/log so the anacron "
-            "job log (publish-data-release.log) survives container recreation"
+            "lmelp-export should mount a volume on /var/log so the publish "
+            "loop log (publish-data-release.log) survives container recreation"
         )
 
     def test_log_volume_uses_env_variable(self):
@@ -247,8 +247,8 @@ class TestLmelpExportLogVolumeConfiguration:
         """Verify the default host path of the lmelp-export log volume.
 
         Kept at ./data/logs/lmelp-export so existing deployments need no
-        migration. Nesting is harmless: lmelp-export runs anacron as root,
-        and no other service chowns ./data/logs (issue #51 rule).
+        migration. Nesting is harmless: lmelp-export runs as root, and no
+        other service chowns ./data/logs (issue #51 rule).
         """
         service = self._get_lmelp_export()
         volumes = service.get("volumes", [])
@@ -256,6 +256,86 @@ class TestLmelpExportLogVolumeConfiguration:
         assert log_volume is not None, "Log volume should exist"
         assert "./data/logs/lmelp-export" in str(log_volume), (
             "lmelp-export log path should default to ./data/logs/lmelp-export"
+        )
+
+
+class TestLmelpExportPublishLoopConfiguration:
+    """Tests for the hourly publish loop and its ntfy notifications (issue #77).
+
+    Since lmelp-mobile#153, the lmelp-mobile-export image runs
+    'export-and-publish-release' every PUBLISH_INTERVAL seconds and notifies
+    ntfy on each real publication, on the first failure and on recovery. The
+    ok/failed state lives in /var/lib/lmelp-export/last_status: without a
+    volume, a container recreated during an outage restarts from "ok" and the
+    recovery notification is never sent.
+    """
+
+    def _get_services(self):
+        with open("docker-compose.yml") as f:
+            return yaml.safe_load(f)["services"]
+
+    def _env_entry(self, service, key):
+        return next(
+            (e for e in service.get("environment", []) if e.startswith(f"{key}=")),
+            None,
+        )
+
+    @pytest.mark.parametrize("key", ["NTFY_SERVER_URL", "NTFY_TOPIC"])
+    def test_ntfy_env_shared_with_backend(self, key):
+        """lmelp-export reads the same .env variables as backend (shared topic)."""
+        services = self._get_services()
+        export_entry = self._env_entry(services["lmelp-export"], key)
+        assert export_entry is not None, f"lmelp-export should define {key}"
+        assert export_entry == self._env_entry(services["backend"], key), (
+            f"lmelp-export {key} should be passed through exactly like backend's "
+            f"(same .env variable, shared ntfy topic)"
+        )
+
+    def test_publish_interval_defaults_to_one_hour(self):
+        entry = self._env_entry(
+            self._get_services()["lmelp-export"], "PUBLISH_INTERVAL"
+        )
+        assert entry == "PUBLISH_INTERVAL=${PUBLISH_INTERVAL:-3600}", (
+            "PUBLISH_INTERVAL should be overridable from .env, default 3600 s"
+        )
+
+    def _state_volume(self):
+        volumes = self._get_services()["lmelp-export"].get("volumes", [])
+        return next(
+            (v for v in volumes if str(v).endswith(":/var/lib/lmelp-export")), None
+        )
+
+    def test_state_volume_mounted(self):
+        assert self._state_volume() is not None, (
+            "lmelp-export should persist /var/lib/lmelp-export (last_status) so "
+            "the ntfy failure/recovery state survives container recreation"
+        )
+
+    def test_state_volume_uses_env_variable_and_default(self):
+        volume = str(self._state_volume())
+        assert volume.startswith(
+            "${LMELP_EXPORT_STATE_PATH:-./data/logs/lmelp-export-state}"
+        ), (
+            "State volume should use LMELP_EXPORT_STATE_PATH, default "
+            "./data/logs/lmelp-export-state"
+        )
+
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    @pytest.mark.parametrize("var", ["PUBLISH_INTERVAL", "LMELP_EXPORT_STATE_PATH"])
+    def test_env_examples_document_new_variables(self, env_file, var):
+        with open(env_file) as f:
+            assert var in f.read(), f"{env_file} should document {var}"
+
+    def test_nas_env_example_uses_absolute_state_path(self):
+        """Portainer resolves relative paths from its own directory (CLAUDE.md)."""
+        with open(".env.nas.example") as f:
+            line = next(
+                (raw for raw in f if raw.startswith("LMELP_EXPORT_STATE_PATH=")),
+                None,
+            )
+        assert line is not None, ".env.nas.example should set LMELP_EXPORT_STATE_PATH"
+        assert line.split("=", 1)[1].startswith("/volume1/"), (
+            "LMELP_EXPORT_STATE_PATH must be absolute in .env.nas.example"
         )
 
 

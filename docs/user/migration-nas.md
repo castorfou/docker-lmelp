@@ -29,7 +29,7 @@ en tant qu'utilisateur simple (pour moi guillaume uid 1027)
 créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
 
 - `/docker/lmelp`
-- `/docker/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys-backend}`
+- `/docker/{mongodb,backups,audios,logs/lmelp-export,logs/lmelp-export-state,mongodb-logs,cache/babelio,pgx-keys-backend}`
 ```
 
 !!! info "`pgx-keys-backend` (optionnel, transcription PGX)"
@@ -131,8 +131,9 @@ Points d'attention :
   résolution des chemins relatifs par Portainer) — déjà le cas dans `.env.nas.example`.
 - `CALIBRE_HOST_PATH` pointe vers la bibliothèque Calibre-Web-Automated déjà présente
   sur ce NAS (`/volume1/docker/calibre-web-automated/books`), montée en lecture seule.
-  Cette bibliothèque est alimentée chaque nuit par `scripts/nas/nightly-sync.sh`, qui doit
-  tourner avant l'export de `lmelp-export` : voir [De Calibre à l'app mobile](calibre-vers-app-mobile.md).
+  Cette bibliothèque est alimentée chaque nuit par `scripts/nas/nightly-sync.sh` ;
+  `lmelp-export` la relit à chaque passage de sa boucle de publication : voir
+  [De Calibre à l'app mobile](calibre-vers-app-mobile.md).
 - `PUID`/`PGID` : câblés dans `docker-compose.yml` pour le service `backend`
   (utilisateur non-root configurable, castorfou/back-office-lmelp#258). Valeur `1027` déjà renseignée dans
   `.env.nas.example` (UID réel de `guillaume` sur ce NAS) — les fichiers audios/cache

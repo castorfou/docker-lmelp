@@ -64,7 +64,7 @@ docker compose ps
 | **mongo** | ghcr.io/castorfou/lmelp-mongo:latest | 27018 | MongoDB 8 + backup + rotation logs (anacron) |
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web lmelp (PWA) |
-| **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Export vers Android via ADB |
+| **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Publication horaire de la base mobile (GitHub Release, notifications ntfy), export Android via ADB |
 | **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions des clés SSH PGX (backend et clé historique) |
 
 ## 📚 Documentation complète
@@ -129,7 +129,8 @@ docker-lmelp/
 │   ├── backups/            # Backups MongoDB
 │   ├── audios/             # Fichiers audio LMELP
 │   ├── mongodb-logs/       # Logs MongoDB (mongod, backup, rotation)
-│   ├── logs/lmelp-export/  # Logs du job anacron de lmelp-export
+│   ├── logs/lmelp-export/  # Log de la boucle de publication de lmelp-export
+│   ├── logs/lmelp-export-state/ # État ok/échec de la publication (notifications ntfy)
 │   ├── pgx-keys/           # Clé SSH PGX historique (optionnel)
 │   └── pgx-keys-backend/   # Clé SSH dédiée à la transcription PGX (backend, optionnel)
 └── docs/                   # Documentation MkDocs

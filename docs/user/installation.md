@@ -118,7 +118,7 @@ docker compose logs --tail=100 backend
 docker compose logs --since 2024-01-20T15:00:00 backend
 ```
 
-**Note** : Le répertoire `data/logs/lmelp-export/` reçoit le log du job anacron de `lmelp-export`. Les logs Docker sont stockés séparément par Docker lui-même (dans `/var/lib/docker/containers/`). La configuration actuelle limite les logs à 10MB par fichier avec rotation sur 3 fichiers maximum.
+**Note** : Le répertoire `data/logs/lmelp-export/` reçoit le log de la boucle de publication de `lmelp-export`, et `data/logs/lmelp-export-state/` son dernier statut (`last_status`). Les logs Docker sont stockés séparément par Docker lui-même (dans `/var/lib/docker/containers/`). La configuration actuelle limite les logs à 10MB par fichier avec rotation sur 3 fichiers maximum.
 
 #### Vérification automatique avec Health Checks
 

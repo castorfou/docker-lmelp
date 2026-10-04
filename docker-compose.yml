@@ -161,12 +161,16 @@ services:
         condition: service_healthy
     volumes:
       - ${CALIBRE_HOST_PATH:-/dev/null}:/calibre:ro
-      # anacron writes /var/log/publish-data-release.log inside the
+      # publish-loop writes /var/log/publish-data-release.log inside the
       # container; without this volume the log never reaches the host.
       # Default kept under ./data/logs for existing deployments. Nesting is
-      # harmless: anacron runs as root here and no other service chowns
+      # harmless: this container runs as root and no other service chowns
       # ./data/logs (see issue #51 rule in CLAUDE.md).
       - ${LMELP_EXPORT_LOG_PATH:-./data/logs/lmelp-export}:/var/log
+      # ok/failed state of the publish loop (last_status). Without it, a
+      # container recreated during an outage restarts from "ok" and the
+      # ntfy recovery notification is never sent (issue #77).
+      - ${LMELP_EXPORT_STATE_PATH:-./data/logs/lmelp-export-state}:/var/lib/lmelp-export
     environment:
       - LMELP_MONGO_URI=mongodb://mongo:27017
       - LMELP_CALIBRE_DB=/calibre/metadata.db
@@ -176,6 +180,13 @@ services:
       # GitHub token used by 'export-and-publish-release' (gh release upload
       # to the 'data-v{N}' release of castorfou/lmelp-mobile, N = Room schema)
       - GH_TOKEN=${GH_TOKEN:-}
+      # publish-loop runs export-and-publish-release every PUBLISH_INTERVAL
+      # seconds (0 disables it) and notifies ntfy on each publication, on the
+      # first failure and on recovery (lmelp-mobile#153). Same ntfy variables
+      # as backend: shared topic, titles prefixed "lmelp-mobile - ".
+      - PUBLISH_INTERVAL=${PUBLISH_INTERVAL:-3600}
+      - NTFY_SERVER_URL=${NTFY_SERVER_URL:-}
+      - NTFY_TOPIC=${NTFY_TOPIC:-}
     extra_hosts:
       - "host-gateway:host-gateway"
     healthcheck:
