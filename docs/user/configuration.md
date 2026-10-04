@@ -275,10 +275,14 @@ RSS_MASQUE_ET_LA_PLUME_URL=https://radiofrance-podcast.net/podcast09/rss_14007.x
 # Seuil de durée minimale (minutes) pour retenir un épisode
 RSS_DUREE_MINI_MINUTES=15
 
-# Notifications ntfy.sh de fin de synchronisation (optionnel, no-op si vide)
+# Notifications ntfy.sh (optionnel, no-op si vide)
 NTFY_SERVER_URL=
 NTFY_TOPIC=
 ```
+
+`NTFY_SERVER_URL` et `NTFY_TOPIC` servent aussi au service `lmelp-export`, qui publie
+sur le même topic (titres préfixés `lmelp-mobile - `) : voir
+[De Calibre à l'app mobile](calibre-vers-app-mobile.md).
 
 Le backend stocke les fichiers audio téléchargés dans le volume `AUDIO_PATH` (voir
 [Chemins des volumes](#chemins-des-volumes)).
@@ -319,12 +323,16 @@ PGX_KEYS_PATH=./data/pgx-keys
 # Clé SSH dédiée PGX du backend (persistée entre redéploiements)
 PGX_BACKEND_KEYS_PATH=./data/pgx-keys-backend
 
-# Log du job anacron de lmelp-export (publish-data-release.log)
+# Log de la boucle de publication de lmelp-export (publish-data-release.log)
 LMELP_EXPORT_LOG_PATH=./data/logs/lmelp-export
+
+# État ok/échec de la boucle de publication de lmelp-export (last_status)
+LMELP_EXPORT_STATE_PATH=./data/logs/lmelp-export-state
 ```
 
 **Note sur les logs** :
 - `LMELP_EXPORT_LOG_PATH` est monté sur `/var/log` du container `lmelp-export`
+- `LMELP_EXPORT_STATE_PATH` est monté sur `/var/lib/lmelp-export` du container `lmelp-export`
 - `MONGO_LOG_PATH` est monté dans le container MongoDB pour tous les logs MongoDB (serveur, backup, rotation)
 - Les logs Docker (stdout/stderr) sont gérés par Docker et accessibles via `docker compose logs`
 - Configuration de rotation : 10MB max par fichier, 3 fichiers conservés

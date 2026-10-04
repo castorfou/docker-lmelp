@@ -11,9 +11,10 @@
 # de CWA (relance le backfill des checksums KOReader).
 #
 # ORDONNANCEMENT : lmelp-export lit cette bibliothèque CWA (CALIBRE_HOST_PATH)
-# pour son export quotidien (anacron, entre 00:10 et 01:10 UTC). Ce script doit
-# donc être TERMINÉ avant 00:10 UTC, sinon l'app mobile reçoit des données
-# vieilles d'un jour (lmelp-mobile#135). Voir docs/user/calibre-vers-app-mobile.md.
+# à chaque passage de sa boucle de publication (toutes les PUBLISH_INTERVAL
+# secondes, 1 h par défaut). Les changements synchronisés ici atteignent donc
+# l'app mobile au plus un intervalle plus tard, quelle que soit l'heure de la
+# tâche DSM. Voir docs/user/calibre-vers-app-mobile.md.
 #
 # Les chemins sont surchargeables par variables d'environnement ; les valeurs
 # par défaut sont celles du NAS de référence.
