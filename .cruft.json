@@ -1,6 +1,6 @@
 {
   "template": "https://github.com/castorfou/PyFoundry.git",
-  "commit": "d4ef1ef4bd8229e0e52ec8c4fadae8910e5792cd",
+  "commit": "59c2ddf719d63d5a372a252709221b090dc93da7",
   "checkout": null,
   "context": {
     "cookiecutter": {
@@ -16,7 +16,7 @@
         ".devcontainer/scripts/check_mounts.sh"
       ],
       "_template": "https://github.com/castorfou/PyFoundry.git",
-      "_commit": "d4ef1ef4bd8229e0e52ec8c4fadae8910e5792cd"
+      "_commit": "59c2ddf719d63d5a372a252709221b090dc93da7"
     }
   },
   "directory": null
