@@ -98,7 +98,9 @@
             "version": "lts",
             "installYarnUsingApt": false
         },
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+        "ghcr.io/devcontainers/features/docker-in-docker:4": {
+            "moby": false
+        }
     },
     // Montages : HOME persistant propre au projet (survit aux rebuilds), cache pre-commit,
     // authentification gh et config Claude Code partagés entre devcontainers (sauf les verrous IDE,
