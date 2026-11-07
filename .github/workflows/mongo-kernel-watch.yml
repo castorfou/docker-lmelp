@@ -1,0 +1,32 @@
+name: 🔭 Watch mongo:8 on Ubuntu 7.0 kernels
+
+# mongodb.Dockerfile stays on mongo:8.2 until mongo:8 starts on Ubuntu 7.0 kernels
+# (SERVER-136848). Once it does, the script opens a switch-back issue and sends one
+# ntfy notification. Logic lives in scripts/check_mongo_kernel_fix.sh (issue #81).
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  watch:
+    name: 🔭 Does mongo:8 start on this kernel?
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐧 Runner kernel
+        run: uname -r
+
+      - name: 🔍 Check mongo:8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NTFY_SERVER_URL: ${{ secrets.NTFY_SERVER_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: scripts/check_mongo_kernel_fix.sh
