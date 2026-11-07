@@ -24,6 +24,24 @@ sur cette page.
     `tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse une série soumise à ce
     contrôle.
 
+    **Ce retour est détecté automatiquement.** Chaque lundi à 06:00 UTC, le workflow
+    GitHub Actions `mongo-kernel-watch` lance `mongo:8` sur un runner `ubuntu-24.04`. Le
+    jour où `mongod` 8.3 ou plus y démarre, il ouvre une seule fois l'issue
+    « Revenir à mongo:8 : SERVER-136848 corrigé » (label `mongo-kernel-watch`), avec la
+    checklist de bascule, et envoie une notification ntfy sur le topic du `.env` du NAS.
+    La bascule elle-même reste une PR relue.
+
+    Pour suivre la surveillance :
+
+    ```bash
+    gh run list --workflow mongo-kernel-watch.yml      # derniers passages
+    gh workflow run mongo-kernel-watch.yml             # vérification immédiate
+    gh issue list --state all --label mongo-kernel-watch
+    ```
+
+    Un run vert sans issue signifie que `mongo:8` est toujours bloqué. Un run rouge signale
+    un résultat inattendu (pull impossible, message inconnu) : sa sortie est dans les logs.
+
 ## Binaire et FCV : deux versions à connaître
 
 Une instance MongoDB porte deux numéros de version :
@@ -83,7 +101,8 @@ Voir [Gestion des backups](backup-restore.md) pour la restauration.
 Dans `mongodb.Dockerfile`, remplacer `FROM mongo:8.2` par `FROM mongo:8.3`, publier
 l'image (voir l'étape 4) et vérifier que le binaire est en 8.3. Cette étape suppose que
 [SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848) est corrigé : sinon, la CI
-échoue sur les runners GitHub.
+échoue sur les runners GitHub. L'issue ouverte par le workflow `mongo-kernel-watch`
+signale ce moment.
 
 ### 3. Amener la FCV en 8.3
 

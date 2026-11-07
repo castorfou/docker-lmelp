@@ -156,6 +156,15 @@ quand le noyau contient le correctif rseq (SERVER-136848, ouvert, sans contourne
   changement de série.
 - Un échec soudain des tests d'image mongo en CI, sans changement côté mongo, vient
   d'abord du runner (noyau) ou du tag de base qui a bougé : lire la sortie de `mongod`.
+- Le retour à `mongo:8` est surveillé chaque semaine par `mongo-kernel-watch.yml`
+  (`scripts/check_mongo_kernel_fix.sh`, issue #81). Il ouvre une seule fois l'issue
+  « Revenir à mongo:8 : SERVER-136848 corrigé » et notifie ntfy. La bascule reste une PR
+  relue, qui supprime aussi ce workflow et son script. Le topic ntfy (secret
+  `NTFY_TOPIC`) ne doit jamais apparaître dans un log : pas de `set -x` dans le script.
+- En local, le devcontainer (feature `docker-in-docker` en 2.17.0) ne démarre pas `dockerd`
+  sur un noyau hôte 7.0 : iptables legacy, sans table `nat`. Contournement non persistant :
+  `sudo update-alternatives --set iptables /usr/sbin/iptables-nft` (idem `ip6tables`), puis
+  `sudo nohup dockerd &`. Correctif durable : issue #83.
 
 ### `lmelp-export` publie en boucle : la donnée Calibre arrive au plus un intervalle plus tard
 
