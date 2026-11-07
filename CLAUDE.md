@@ -125,9 +125,9 @@ précédente : 9.0 accepte les FCV 8.0 et 8.3, pas la 8.2 en place. Résultat : 
 sortie 62 et redémarrage en boucle.
 
 **Règles** :
-- Le `FROM` de `mongodb.Dockerfile` désigne une majeure (`mongo:8`), jamais `latest`.
-  `tests/test_mongodb_image.py::TestMongoBaseImagePinned` le vérifie, ainsi que pour les
-  images `mongo` officielles des fichiers `docker-compose*.yml`.
+- Le `FROM` de `mongodb.Dockerfile` désigne une version numérique (`mongo:8.2`), jamais
+  `latest`. `tests/test_mongodb_image.py::TestMongoBaseImagePinned` le vérifie, ainsi que
+  pour les images `mongo` officielles des fichiers `docker-compose*.yml`.
 - Une montée de majeure est manuelle : sauvegarde, une majeure à la fois, puis
   `setFeatureCompatibilityVersion` avec `confirm: true`. Procédure :
   `docs/user/mongodb-upgrade.md`.
@@ -136,6 +136,26 @@ sortie 62 et redémarrage en boucle.
   valeurs dans un seul `printjson({...})`.
 - `docker-compose.mongo7.yml` (override local, `mongo:7.0`) exige des données en FCV 7.0 :
   une copie du volume du NAS ne s'y ouvre pas.
+
+### `mongo:8` ne démarre pas sur un noyau Ubuntu 7.0 : l'image reste en 8.2
+
+**Piège découvert lors de la PR #80** : la CI a échoué sur tous les tests qui démarrent
+l'image, alors que rien côté mongo n'avait changé. `mongod` s'arrêtait avec *"MongoDB
+cannot start: Linux kernel versions 6.19 and newer has a known incompatibility"*. Les
+runners GitHub étaient passés sur un noyau `7.0.0-1017-azure`, et `mongo:8` pointait sur la
+8.3.13. MongoDB 8.0.21 et suivantes, 8.3 et 9.0 lisent `uname -r` et refusent les noyaux
+de 6.19 à 7.0.13. Or Ubuntu affiche toujours `7.0.0-NN` et masque la version amont, même
+quand le noyau contient le correctif rseq (SERVER-136848, ouvert, sans contournement).
+
+**Règles** :
+- `mongodb.Dockerfile` reste sur `FROM mongo:8.2`, qui n'a pas ce contrôle, tant que
+  SERVER-136848 n'est pas corrigé. `TestMongoBaseImagePinned::
+  test_base_image_starts_on_ubuntu_7_kernels` refuse une autre série.
+- Passer d'un binaire 8.3 à 8.2 n'est sûr qu'avec une FCV déjà à 8.2. Le NAS était en
+  binaire 8.3.11 et FCV 8.2 au moment du changement. Relever binaire **et** FCV avant tout
+  changement de série.
+- Un échec soudain des tests d'image mongo en CI, sans changement côté mongo, vient
+  d'abord du runner (noyau) ou du tag de base qui a bougé : lire la sortie de `mongod`.
 
 ### `lmelp-export` publie en boucle : la donnée Calibre arrive au plus un intervalle plus tard
 

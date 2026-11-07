@@ -1,9 +1,28 @@
 # Version de MongoDB et montée de version majeure
 
-L'image `ghcr.io/castorfou/lmelp-mongo` embarque une version **majeure** précise de MongoDB,
-fixée dans `mongodb.Dockerfile` (`FROM mongo:8`). Les correctifs de la branche 8.x arrivent
-à chaque reconstruction de l'image ; un changement de majeure est une opération manuelle,
-décrite sur cette page.
+L'image `ghcr.io/castorfou/lmelp-mongo` embarque une série précise de MongoDB, fixée dans
+`mongodb.Dockerfile` (`FROM mongo:8.2`). Les correctifs de la série 8.2 arrivent à chaque
+reconstruction de l'image ; un changement de version est une opération manuelle, décrite
+sur cette page.
+
+!!! warning "Pourquoi 8.2 et pas `mongo:8`"
+    `mongod` 8.0.21 et suivantes, 8.3 et 9.0 refusent de démarrer quand `uname -r` indique
+    un noyau Linux de 6.19 à 7.0.13 :
+
+    ```
+    MongoDB cannot start: Linux kernel versions 6.19 and newer has a known incompatibility
+    with this version of MongoDB.
+    ```
+
+    Tous les noyaux Ubuntu 7.0 sont concernés : leur version s'affiche `7.0.0-NN`, même
+    quand ils contiennent le correctif du noyau. C'est le cas des runners GitHub Actions et
+    des postes Ubuntu récents. La série 8.2 n'a pas ce contrôle et démarre sur ces noyaux.
+    Le noyau des NAS Synology est plus ancien et n'est pas concerné.
+
+    Le retour sur `mongo:8` (8.3 et suivantes) attend la correction de
+    [SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848).
+    `tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse une série soumise à ce
+    contrôle.
 
 ## Binaire et FCV : deux versions à connaître
 
@@ -59,7 +78,14 @@ ls -lh data/backups/
 
 Voir [Gestion des backups](backup-restore.md) pour la restauration.
 
-### 2. Amener la FCV en 8.3
+### 2. Passer le binaire en 8.3
+
+Dans `mongodb.Dockerfile`, remplacer `FROM mongo:8.2` par `FROM mongo:8.3`, publier
+l'image (voir l'étape 4) et vérifier que le binaire est en 8.3. Cette étape suppose que
+[SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848) est corrigé : sinon, la CI
+échoue sur les runners GitHub.
+
+### 3. Amener la FCV en 8.3
 
 Le binaire doit être en 8.3 (vérifier avec la commande ci-dessus), puis :
 
@@ -70,9 +96,9 @@ docker exec lmelp-mongo mongosh --quiet --eval \
 
 Relever à nouveau les deux versions : la FCV doit valoir `8.3`.
 
-### 3. Passer l'image en 9.0
+### 4. Passer l'image en 9.0
 
-Dans `mongodb.Dockerfile`, remplacer `FROM mongo:8` par `FROM mongo:9`, puis publier la
+Dans `mongodb.Dockerfile`, remplacer `FROM mongo:8.3` par `FROM mongo:9`, puis publier la
 modification sur `main`. Le workflow GitHub Actions reconstruit et publie
 `ghcr.io/castorfou/lmelp-mongo:latest`, que Watchtower déploie ensuite. Sans Watchtower :
 
@@ -87,7 +113,7 @@ Vérifier que le conteneur est `healthy` et que le binaire est en 9.0 :
 docker ps --filter name=lmelp-mongo
 ```
 
-### 4. Amener la FCV en 9.0
+### 5. Amener la FCV en 9.0
 
 Après quelques jours de fonctionnement normal :
 
@@ -97,6 +123,13 @@ docker exec lmelp-mongo mongosh --quiet --eval \
 ```
 
 ## Dépannage
+
+### Le conteneur s'arrête au démarrage : « Linux kernel versions 6.19 and newer »
+
+Le binaire de l'image appartient à une série soumise au contrôle du noyau (8.0.21 et
+suivantes, 8.3, 9.0), et la machine tourne sur un noyau de 6.19 à 7.0.13. Vérifier la
+ligne `FROM` de `mongodb.Dockerfile` (attendu : `mongo:8.2`) et le noyau de la machine
+(`uname -r`). Voir l'encadré en haut de cette page.
 
 ### Le conteneur redémarre en boucle avec le code de sortie 62
 

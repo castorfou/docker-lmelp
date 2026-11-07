@@ -15,6 +15,12 @@ import pytest
 # A version tag such as "8", "8.3" or "8.3.1" -- never "latest" (issue #74).
 PINNED_MONGO_TAG = re.compile(r"^\d+(\.\d+){0,2}$")
 
+# mongod 8.0.21+, 8.3 and 9.0 refuse to start when `uname -r` reports a kernel
+# from 6.19 to 7.0.13, which includes every Ubuntu 7.0 kernel (`7.0.0-NN`, the
+# upstream patch level is hidden): GitHub runners, Ubuntu laptops. These
+# release series have no such startup check (SERVER-136848, still open).
+KERNEL_CHECK_FREE_MONGO_SERIES = {"7.0", "8.2"}
+
 
 def _mongo_base_image_tag() -> str | None:
     """Tag of the official mongo image mongodb.Dockerfile builds FROM, or
@@ -178,6 +184,19 @@ class TestMongoBaseImagePinned:
         assert tag is not None and PINNED_MONGO_TAG.match(tag), (
             f"mongodb.Dockerfile must start FROM mongo:<version> (e.g. mongo:8), "
             f"not a floating tag: got {tag!r} (issue #74)"
+        )
+
+    def test_base_image_starts_on_ubuntu_7_kernels(self):
+        """SERVER-136848: on a kernel reported as 6.19 to 7.0.13, which is every
+        Ubuntu 7.0 kernel, mongod 8.0.21+, 8.3 and 9.0 exit at startup. The
+        image would not start in CI or on an Ubuntu laptop. Pin a release series
+        without that check (mongo:8.2) until MongoDB fixes the detection."""
+        tag = _mongo_base_image_tag() or "latest"
+        series = ".".join(tag.split(".")[:2])
+        assert series in KERNEL_CHECK_FREE_MONGO_SERIES, (
+            f"mongodb.Dockerfile builds FROM mongo:{tag}, a series that refuses "
+            f"to start on Ubuntu 7.0 kernels (SERVER-136848). Use one of "
+            f"{sorted(KERNEL_CHECK_FREE_MONGO_SERIES)}, e.g. mongo:8.2."
         )
 
     def test_compose_files_do_not_use_floating_official_mongo_tag(self):
