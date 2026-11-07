@@ -15,29 +15,37 @@ Pour résoudre ces problèmes, une image custom a été créée avec anacron int
 ### 1. Extension de l'image officielle
 
 ```dockerfile
-FROM mongo:8
+FROM mongo:8.2
 ```
 
 **Raison** : Partir de l'image officielle garantit :
 - Compatibilité avec MongoDB
-- Correctifs de la branche 8.x à chaque reconstruction de l'image, déployés ensuite par Watchtower
+- Correctifs de la série 8.2 à chaque reconstruction de l'image, déployés ensuite par Watchtower
 - Pas de réinvention de la roue
 
-**Version majeure épinglée** : le tag désigne une majeure (`mongo:8`), jamais `latest`.
+**Version épinglée** : le tag désigne une série (`mongo:8.2`), jamais `latest`.
 `mongod` n'ouvre que des données dont la `featureCompatibilityVersion` (FCV) appartient à
 la majeure précédente ; un tag flottant qui change de majeure lors d'une reconstruction
 laisse le conteneur en redémarrage permanent (code de sortie 62). Un changement de majeure
 se fait donc en modifiant ce `FROM`, selon la procédure de
 [montée de version](../user/mongodb-upgrade.md).
 
+**Série 8.2 plutôt que `mongo:8`** : `mongod` 8.0.21 et suivantes, 8.3 et 9.0 s'arrêtent au
+démarrage sur un noyau affiché de 6.19 à 7.0.13, ce qui inclut tous les noyaux Ubuntu 7.0
+(`7.0.0-NN`) : runners GitHub Actions, postes Ubuntu. La série 8.2 n'a pas ce contrôle.
+Le retour à `mongo:8` attend la correction de
+[SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848).
+
 `tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse tout tag non numérique,
-dans le Dockerfile comme pour les images `mongo` officielles des fichiers compose, et
+dans le Dockerfile comme pour les images `mongo` officielles des fichiers compose, ainsi
+qu'une série soumise au contrôle du noyau (`test_base_image_starts_on_ubuntu_7_kernels`), et
 `test_mongod_version_matches_pinned_base_image` compare le binaire de l'image construite au
 tag épinglé.
 
 **Override local `docker-compose.mongo7.yml`** : remplace l'image par l'officielle
 `mongo:7.0` (sans anacron ni scripts) sur les postes dont le noyau Linux, de 6.19 à 7.0.13,
-empêche MongoDB 8.x de démarrer. Il exige des données en FCV 7.0.
+empêche les séries soumises au contrôle du noyau (voir ci-dessus) de démarrer. Il exige des
+données en FCV 7.0.
 
 ### 2. Utilisation d'anacron au lieu de cron
 

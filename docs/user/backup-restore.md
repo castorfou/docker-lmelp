@@ -356,7 +356,7 @@ Restaurer sur une instance de test pour vérifier l'intégrité :
 
 ```bash
 # Démarrer un MongoDB temporaire
-docker run -d --name mongo-test -p 27018:27017 mongo:8
+docker run -d --name mongo-test -p 27018:27017 mongo:8.2
 
 # Restaurer le backup
 mongorestore \

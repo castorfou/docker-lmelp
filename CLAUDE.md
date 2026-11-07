@@ -18,6 +18,7 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 .
 ├── .claude/                # Configuration Claude Code
 │   ├── commands/          # Commandes slash personnalisées
+│   ├── skills/            # Skills (cruft-update : mise à jour du template)
 │   └── settings.json      # Plugins activés (mattpocock-skills)
 ├── .devcontainer/          # Configuration du dev container
 ├── .github/workflows/      # CI/CD GitHub Actions
@@ -37,6 +38,7 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── CLAUDE.md              # Ce fichier - Documentation pour Claude Code
+├── TEMPLATE_VERSION       # Version PyFoundry du projet (mise à jour par cruft update)
 └── pyproject.toml         # Configuration du projet et dépendances
 ```
 
@@ -123,9 +125,9 @@ précédente : 9.0 accepte les FCV 8.0 et 8.3, pas la 8.2 en place. Résultat : 
 sortie 62 et redémarrage en boucle.
 
 **Règles** :
-- Le `FROM` de `mongodb.Dockerfile` désigne une majeure (`mongo:8`), jamais `latest`.
-  `tests/test_mongodb_image.py::TestMongoBaseImagePinned` le vérifie, ainsi que pour les
-  images `mongo` officielles des fichiers `docker-compose*.yml`.
+- Le `FROM` de `mongodb.Dockerfile` désigne une version numérique (`mongo:8.2`), jamais
+  `latest`. `tests/test_mongodb_image.py::TestMongoBaseImagePinned` le vérifie, ainsi que
+  pour les images `mongo` officielles des fichiers `docker-compose*.yml`.
 - Une montée de majeure est manuelle : sauvegarde, une majeure à la fois, puis
   `setFeatureCompatibilityVersion` avec `confirm: true`. Procédure :
   `docs/user/mongodb-upgrade.md`.
@@ -134,6 +136,26 @@ sortie 62 et redémarrage en boucle.
   valeurs dans un seul `printjson({...})`.
 - `docker-compose.mongo7.yml` (override local, `mongo:7.0`) exige des données en FCV 7.0 :
   une copie du volume du NAS ne s'y ouvre pas.
+
+### `mongo:8` ne démarre pas sur un noyau Ubuntu 7.0 : l'image reste en 8.2
+
+**Piège découvert lors de la PR #80** : la CI a échoué sur tous les tests qui démarrent
+l'image, alors que rien côté mongo n'avait changé. `mongod` s'arrêtait avec *"MongoDB
+cannot start: Linux kernel versions 6.19 and newer has a known incompatibility"*. Les
+runners GitHub étaient passés sur un noyau `7.0.0-1017-azure`, et `mongo:8` pointait sur la
+8.3.13. MongoDB 8.0.21 et suivantes, 8.3 et 9.0 lisent `uname -r` et refusent les noyaux
+de 6.19 à 7.0.13. Or Ubuntu affiche toujours `7.0.0-NN` et masque la version amont, même
+quand le noyau contient le correctif rseq (SERVER-136848, ouvert, sans contournement).
+
+**Règles** :
+- `mongodb.Dockerfile` reste sur `FROM mongo:8.2`, qui n'a pas ce contrôle, tant que
+  SERVER-136848 n'est pas corrigé. `TestMongoBaseImagePinned::
+  test_base_image_starts_on_ubuntu_7_kernels` refuse une autre série.
+- Passer d'un binaire 8.3 à 8.2 n'est sûr qu'avec une FCV déjà à 8.2. Le NAS était en
+  binaire 8.3.11 et FCV 8.2 au moment du changement. Relever binaire **et** FCV avant tout
+  changement de série.
+- Un échec soudain des tests d'image mongo en CI, sans changement côté mongo, vient
+  d'abord du runner (noyau) ou du tag de base qui a bougé : lire la sortie de `mongod`.
 
 ### `lmelp-export` publie en boucle : la donnée Calibre arrive au plus un intervalle plus tard
 
@@ -308,6 +330,10 @@ Les dépendances sont gérées via `uv` et définies dans `pyproject.toml`:
 # Sync des dépendances
 uv sync --active --all-extras
 
+# Après une modification à la main de pyproject.toml : mettre à jour uv.lock et le commiter
+# (le devcontainer installe uv.lock sans le modifier, la CI vérifie qu'il est à jour)
+uv lock
+
 # Tests
 uv run --active pytest
 
@@ -384,6 +410,7 @@ uv run mkdocs build --strict
 ### Déploiement automatique
 
 La documentation est automatiquement construite et déployée sur GitHub Pages via la workflow `.github/workflows/docs.yml` :
+- Prérequis, une fois par projet : source GitHub Pages réglée sur « GitHub Actions » (`gh api "repos/{owner}/{repo}/pages" --jq .build_type` doit afficher `workflow`). Avec « Deploy from a branch », GitHub lance à chaque push un run `pages build and deployment` en échec dans « Build with Jekyll » (voir `docs/cheatsheets/mkdocs.md`, section « Activer GitHub Pages »).
 - Déclenché à chaque push sur `main` modifiant `docs/` ou `mkdocs.yml`
 - Lançable à la main depuis n'importe quelle branche : `gh workflow run docs.yml --ref <branche>`. Prérequis, une fois par projet : autoriser la branche dans l'environnement GitHub `github-pages` (voir `docs/cheatsheets/mkdocs.md`, section « Publier la doc d'une branche »). La doc publiée remplace celle de `main` jusqu'au prochain déploiement depuis `main`.
 - Disponible à l'URL : https://castorfou.github.io/docker-lmelp
@@ -503,6 +530,10 @@ Skills les plus utiles :
 - `/tdd` : boucle RED → GREEN → REFACTOR
 - `/triage` : trier les issues GitHub à l'aide des labels
 - `/diagnosing-bugs` : enquêter méthodiquement sur un bug
+
+## Mise à jour du template
+
+La skill `/cruft-update` (`.claude/skills/cruft-update/`) applique les évolutions de PyFoundry : `cruft update`, lecture du CHANGELOG et des migrations, résolution des rejets (`.rej`, marqueurs de conflit) selon le propriétaire de chaque fichier, vérifications, commit. Demande simplement « mets à jour le projet depuis le template ». Elle vient du template : ne la modifie pas ici, la prochaine mise à jour l'écraserait.
 
 ## Workflow de Développement
 
