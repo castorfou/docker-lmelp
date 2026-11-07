@@ -161,10 +161,29 @@ quand le noyau contient le correctif rseq (SERVER-136848, ouvert, sans contourne
   « Revenir à mongo:8 : SERVER-136848 corrigé » et notifie ntfy. La bascule reste une PR
   relue, qui supprime aussi ce workflow et son script. Le topic ntfy (secret
   `NTFY_TOPIC`) ne doit jamais apparaître dans un log : pas de `set -x` dans le script.
-- En local, le devcontainer (feature `docker-in-docker` en 2.17.0) ne démarre pas `dockerd`
-  sur un noyau hôte 7.0 : iptables legacy, sans table `nat`. Contournement non persistant :
-  `sudo update-alternatives --set iptables /usr/sbin/iptables-nft` (idem `ip6tables`), puis
-  `sudo nohup dockerd &`. Correctif durable : issue #83.
+
+### Docker du devcontainer : `docker-in-docker:4` minimum, activé par cruft
+
+**Piège découvert lors de l'issue #83** : `dockerd` ne démarrait pas dans le devcontainer
+sur un noyau hôte 7.0 (*"can't initialize iptables table `nat'"* : pas de module
+`ip_tables`, seul nftables marche). La feature, ajoutée à la main en
+`docker-in-docker:2`, était figée à **2.17.0**, qui choisit iptables au build de l'image.
+Un tag `:N` ne suit que la dernière N.x : régénérer le lock n'apporte jamais les correctifs
+d'une majeure supérieure. Depuis la 4.0.0, `docker-init.sh` choisit iptables au démarrage
+(`iptablesSwitchAtRuntime`, vrai par défaut) : legacy si `ip_tables` est chargé, nft sinon.
+
+**Règles** :
+- La feature vient du template PyFoundry (`docker_in_docker: "y"` dans `.cruft.json`, via
+  `cruft update --variables-to-update`), jamais d'un ajout à la main dans
+  `devcontainer.json`, qui conflicte à chaque mise à jour et bloque les correctifs.
+- Majeure ≥ 4, `iptablesSwitchAtRuntime` jamais à `false`, aucun montage de
+  `/var/run/docker.sock` (le daemon est propre au conteneur) : vérifié par
+  `tests/test_devcontainer.py`, avec un lock synchronisé.
+- Quand un bug de feature devcontainer persiste, lire la version réelle derrière le tag
+  (`docker manifest inspect …`, annotation `dev.containers.metadata`) avant de
+  régénérer le lock. Un correctif de feature se fait d'abord dans PyFoundry.
+
+Référence : `docs/dev/devcontainer-docker.md`.
 
 ### `lmelp-export` publie en boucle : la donnée Calibre arrive au plus un intervalle plus tard
 
