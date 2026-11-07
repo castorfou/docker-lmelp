@@ -18,6 +18,7 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 .
 ├── .claude/                # Configuration Claude Code
 │   ├── commands/          # Commandes slash personnalisées
+│   ├── skills/            # Skills (cruft-update : mise à jour du template)
 │   └── settings.json      # Plugins activés (mattpocock-skills)
 ├── .devcontainer/          # Configuration du dev container
 ├── .github/workflows/      # CI/CD GitHub Actions
@@ -37,6 +38,7 @@ proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion 
 ├── .gitignore
 ├── .pre-commit-config.yaml
 ├── CLAUDE.md              # Ce fichier - Documentation pour Claude Code
+├── TEMPLATE_VERSION       # Version PyFoundry du projet (mise à jour par cruft update)
 └── pyproject.toml         # Configuration du projet et dépendances
 ```
 
@@ -308,6 +310,10 @@ Les dépendances sont gérées via `uv` et définies dans `pyproject.toml`:
 # Sync des dépendances
 uv sync --active --all-extras
 
+# Après une modification à la main de pyproject.toml : mettre à jour uv.lock et le commiter
+# (le devcontainer installe uv.lock sans le modifier, la CI vérifie qu'il est à jour)
+uv lock
+
 # Tests
 uv run --active pytest
 
@@ -384,6 +390,7 @@ uv run mkdocs build --strict
 ### Déploiement automatique
 
 La documentation est automatiquement construite et déployée sur GitHub Pages via la workflow `.github/workflows/docs.yml` :
+- Prérequis, une fois par projet : source GitHub Pages réglée sur « GitHub Actions » (`gh api "repos/{owner}/{repo}/pages" --jq .build_type` doit afficher `workflow`). Avec « Deploy from a branch », GitHub lance à chaque push un run `pages build and deployment` en échec dans « Build with Jekyll » (voir `docs/cheatsheets/mkdocs.md`, section « Activer GitHub Pages »).
 - Déclenché à chaque push sur `main` modifiant `docs/` ou `mkdocs.yml`
 - Lançable à la main depuis n'importe quelle branche : `gh workflow run docs.yml --ref <branche>`. Prérequis, une fois par projet : autoriser la branche dans l'environnement GitHub `github-pages` (voir `docs/cheatsheets/mkdocs.md`, section « Publier la doc d'une branche »). La doc publiée remplace celle de `main` jusqu'au prochain déploiement depuis `main`.
 - Disponible à l'URL : https://castorfou.github.io/docker-lmelp
@@ -503,6 +510,10 @@ Skills les plus utiles :
 - `/tdd` : boucle RED → GREEN → REFACTOR
 - `/triage` : trier les issues GitHub à l'aide des labels
 - `/diagnosing-bugs` : enquêter méthodiquement sur un bug
+
+## Mise à jour du template
+
+La skill `/cruft-update` (`.claude/skills/cruft-update/`) applique les évolutions de PyFoundry : `cruft update`, lecture du CHANGELOG et des migrations, résolution des rejets (`.rej`, marqueurs de conflit) selon le propriétaire de chaque fichier, vérifications, commit. Demande simplement « mets à jour le projet depuis le template ». Elle vient du template : ne la modifie pas ici, la prochaine mise à jour l'écraserait.
 
 ## Workflow de Développement
 

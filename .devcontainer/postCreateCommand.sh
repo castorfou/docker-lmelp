@@ -80,6 +80,17 @@ ensure_zshrc_line() {
 }
 
 
+# Active le venv dans chaque terminal, s'il existe : un terminal peut s'ouvrir avant que
+# postStartCommand l'ait recréé (issue #86). Le HOME est persistant : on retire la ligne
+# non protégée des versions précédentes.
+setup_venv_activation() {
+    local zshrc="$HOME/.zshrc"
+    if [ -f "$zshrc" ]; then
+        sed -i '\#^source /tmp/venv/bin/activate$#d' "$zshrc"
+    fi
+    ensure_zshrc_line '[[ ! -f /tmp/venv/bin/activate ]] || source /tmp/venv/bin/activate'
+}
+
 # Le HOME est un dossier de l'hôte monté sur /home/vscode : il masque celui de l'image.
 # On recopie les fichiers par défaut (.bashrc, .profile...) sans écraser l'existant.
 seed_home() {
@@ -105,23 +116,11 @@ ensure_uv() {
 # Création de l'environnement Python
 create_python_environment() {
     echo "Configuration de l'environnement Python $PYTHON_VERSION ..."
-
-    echo "Création de l'environnement virtuel dans /tmp/venv"
-    # Hors du HOME persistant : le venv est recréé à chaque rebuild
-    VENV_HOME="/tmp/venv"
-    if [ -d "$VENV_HOME" ]; then
-        echo "Un venv existe déjà à $VENV_HOME, je l'utilise."
-    else
-        uv venv "$VENV_HOME" --python $PYTHON_VERSION
-    fi
-
-    # Activer l'environnement créé dans /tmp/venv
-    source "$VENV_HOME/bin/activate"
-    echo "Installation des dépendances..."
-    # Utiliser --active pour cibler l'environnement virtuel activé (hors du dossier projet)
-    uv sync --active --all-extras
-
-    echo "Environnement Python configuré"
+    # Hors du HOME persistant, dans /tmp/venv : recréé à chaque rebuild, et au démarrage
+    # par postStartCommand s'il manque (scripts/ensure_venv.sh, issue #86)
+    PYTHON_VERSION="$PYTHON_VERSION" bash .devcontainer/scripts/ensure_venv.sh --sync
+    # Les étapes suivantes (pre-commit...) utilisent les outils du venv
+    source /tmp/venv/bin/activate
 }
 
 
@@ -163,26 +162,46 @@ EOF
 
 
 # Configuration Git
+# git commit, y compris sans identité : au premier build, le HOME est neuf et
+# l'identité de l'hôte n'arrive qu'après postCreateCommand. Identité ponctuelle
+# pour ce seul commit, jamais écrite dans .git/config où elle masquerait la
+# globale (#94, #102). Arguments : ceux de git commit.
+git_commit_with_fallback() {
+    if [ -n "$(git config user.email)" ]; then
+        git commit "$@"
+        return
+    fi
+    local name="${GITHUB_USERNAME:-PyFoundry}"
+    local email="${GITHUB_USERNAME:-pyfoundry}@users.noreply.github.com"
+    git -c user.name="$name" -c user.email="$email" commit "$@" || return
+    if [ -z "${IDENTITY_WARNED:-}" ]; then
+        IDENTITY_WARNED=1
+        echo "⚠️  Identité Git non configurée : commits faits sous $name <$email>"
+        echo "    Configurez la vôtre avec :"
+        echo "    git config --global user.name \"Prénom Nom\""
+        echo "    git config --global user.email \"vous@exemple.com\""
+    fi
+}
+
 setup_git() {
     echo "Configuration Git..."
-
-    # Initialisation du dépôt si pas encore fait
     if [ ! -d ".git" ]; then
         echo "Initialisation du dépôt Git..."
         git init
         git branch -M main
-
-        # Configuration de l'utilisateur si non défini (pour éviter l'échec du commit)
-        if [ -z "$(git config --global user.email)" ]; then
-            echo "Configuration d'un utilisateur Git par défaut..."
-            git config user.email "default@michelin.com"
-            git config user.name "Default User"
-        fi
         git add .
-        git commit -m "Initial commit"
+        git_commit_with_fallback -m "Initial commit"
         echo "✅ Dépôt Git initialisé et premier commit effectué"
     else
         echo "Dépôt Git déjà existant"
+        # Ancienne identité par défaut écrite dans .git/config par les versions
+        # précédentes : elle masque l'identité globale de l'utilisateur (#94)
+        if [ "$(git config --local user.email)" = "default@michelin.com" ] \
+            && [ "$(git config --local user.name)" = "Default User" ]; then
+            git config --local --unset user.email
+            git config --local --unset user.name
+            echo "✅ Identité Git par défaut (Default User) retirée de .git/config"
+        fi
     fi
 }
 
@@ -204,7 +223,7 @@ setup_pre-commit() {
             # laisse intacts l'index et le travail en cours (pas de `git add .`)
             if ! git diff --quiet -- .pre-commit-config.yaml; then
                 echo "Commit de la mise à jour des hooks pre-commit..."
-                if ! git commit -m "chore: update pre-commit hooks to latest versions" -- .pre-commit-config.yaml; then
+                if ! git_commit_with_fallback -m "chore: update pre-commit hooks to latest versions" -- .pre-commit-config.yaml; then
                     echo "⚠️  Commit impossible : .pre-commit-config.yaml mis à jour mais non commité"
                 fi
             fi
@@ -267,17 +286,6 @@ setup_github() {
 }
 
 # Helper: update MkDocs repo_url from Git remote
-run_mkdocs_repo_url_update() {
-    if [ -f "${WORKSPACE_FOLDER}/.devcontainer/scripts/update_mkdocs_repo_url.sh" ]; then
-        chmod +x "${WORKSPACE_FOLDER}/.devcontainer/scripts/update_mkdocs_repo_url.sh" || true
-        ( cd "${WORKSPACE_FOLDER}" && ./.devcontainer/scripts/update_mkdocs_repo_url.sh ) \
-            || echo "[postCreate] update_mkdocs_repo_url.sh exited with non-zero status"
-        echo "✅ mkdocs_repo_url configurée"
-    else
-        echo "[postCreate] ${WORKSPACE_FOLDER}/.devcontainer/scripts/update_mkdocs_repo_url.sh not found"
-    fi
-}
-
 # config zsh
 config_zsh() {
     echo "Configuration de zsh..."
@@ -311,7 +319,7 @@ config_zsh() {
 
     ensure_zshrc_line 'export PATH="$HOME/.local/bin:$PATH"'
 
-    ensure_zshrc_line 'source /tmp/venv/bin/activate'
+    setup_venv_activation
 
     # Propose l'authentification gh tant qu'elle manque (terminal VS Code : $BROWSER ouvre l'hôte)
     ensure_zshrc_line 'bash "$WORKSPACE_FOLDER/.devcontainer/scripts/gh_login.sh"'
@@ -330,7 +338,6 @@ setup_git
 setup_github
 setup_pre-commit
 config_zsh
-run_mkdocs_repo_url_update
 
 echo ""
 echo "=================================================================="
