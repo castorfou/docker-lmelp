@@ -10,11 +10,11 @@
 # Étapes : arrêt de CWA → rsync Calibre Desktop → books/ de CWA → redémarrage
 # de CWA (relance le backfill des checksums KOReader).
 #
-# ORDONNANCEMENT : lmelp-export lit cette bibliothèque CWA (CALIBRE_HOST_PATH)
-# à chaque passage de sa boucle de publication (toutes les PUBLISH_INTERVAL
-# secondes, 1 h par défaut). Les changements synchronisés ici atteignent donc
-# l'app mobile au plus un intervalle plus tard, quelle que soit l'heure de la
-# tâche DSM. Voir docs/user/calibre-vers-app-mobile.md.
+# PÉRIMÈTRE : ce script ne sert que CWA. Le back-office et lmelp-export lisent
+# directement la source de cette synchro, la copie Synology Drive
+# (CALIBRE_HOST_PATH = CALIBRE_SOURCE_PATH, issue #79) : l'heure de la tâche
+# DSM n'a aucun effet sur lmelp ni sur l'app mobile.
+# Voir docs/user/calibre-vers-app-mobile.md.
 #
 # Les chemins sont surchargeables par variables d'environnement ; les valeurs
 # par défaut sont celles du NAS de référence.

@@ -14,7 +14,7 @@ L'intégration Calibre permet d'accéder à votre bibliothèque de livres numér
 │                                                             │
 │  ┌────────────────────────────────────────────────────┐   │
 │  │  Bibliothèque Calibre (sur l'hôte)                 │   │
-│  │  /volume1/books/Calibre Library/                   │   │
+│  │  /volume1/homes/utilisateur/Drive/Calibre Library/ │   │
 │  │    ├── metadata.db (SQLite)                        │   │
 │  │    └── Author/Book Title (ID)/...                  │   │
 │  └──────────────────┬─────────────────────────────────┘   │
@@ -50,8 +50,10 @@ Ouvrez votre fichier `.env` et ajoutez la section Calibre selon votre plateforme
 
 ```bash
 # Calibre Integration
-CALIBRE_HOST_PATH=/volume1/books/Calibre Library
+CALIBRE_HOST_PATH=/volume1/homes/utilisateur/Drive/Calibre Library
 ```
+
+Pointez sur la copie de la bibliothèque que Synology Drive tient à jour en continu depuis le poste où tourne Calibre Desktop, et non sur une copie recopiée périodiquement (celle d'un Calibre-Web, par exemple) : le back-office et l'app mobile ne verraient les modifications qu'après la recopie suivante. Le dossier est souvent sous `/volume1/homes` : vérifiez que les conteneurs peuvent le lire (`docker exec lmelp-backoffice-backend ls -l /calibre/metadata.db`).
 
 #### Linux
 
@@ -93,7 +95,7 @@ Portainer résout les chemins relatifs depuis son propre répertoire de travail 
 
 ```bash
 # ✅ BON (chemin absolu)
-CALIBRE_HOST_PATH=/volume1/books/Calibre Library
+CALIBRE_HOST_PATH=/volume1/homes/utilisateur/Drive/Calibre Library
 
 # ❌ MAUVAIS (chemin relatif - ne fonctionnera pas dans Portainer)
 CALIBRE_HOST_PATH=./data/calibre
@@ -178,7 +180,7 @@ L'interface web offre :
 3. Le chemin est relatif dans Portainer
 
 **Solutions** :
-1. Vérifiez que le chemin existe sur l'hôte : `ls -la "/volume1/books/Calibre Library"`
+1. Vérifiez que le chemin existe sur l'hôte : `ls -la "/volume1/homes/utilisateur/Drive/Calibre Library"`
 2. Vérifiez les permissions du répertoire
 3. Si vous utilisez Portainer, assurez-vous d'utiliser un **chemin absolu**
 4. Consultez les logs du backend : `docker logs lmelp-backoffice-backend`
@@ -250,7 +252,7 @@ Pour désactiver l'intégration Calibre :
 1. Commentez ou supprimez `CALIBRE_HOST_PATH` dans votre fichier `.env` :
 
 ```bash
-# CALIBRE_HOST_PATH=/volume1/books/Calibre Library
+# CALIBRE_HOST_PATH=/volume1/homes/utilisateur/Drive/Calibre Library
 ```
 
 2. Redémarrez la stack :

@@ -5,6 +5,9 @@ This test suite verifies that services are correctly configured,
 particularly focusing on healthcheck endpoints.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 import yaml
 
@@ -733,3 +736,81 @@ class TestMongoHealthcheckHome:
         assert healthcheck["timeout"] == "5s"
         assert healthcheck["retries"] == 5
         assert healthcheck["start_period"] == "20s"
+
+
+class TestCalibreHostPathUsesDriveCopy:
+    """CALIBRE_HOST_PATH mounts the Synology Drive copy, not the CWA library.
+
+    The CWA library is refreshed only once a night by nightly-sync.sh, whereas the
+    Drive copy (nightly-sync.sh's own source) is kept up to date within seconds.
+    Both the back-office and lmelp-export read it (issue #79,
+    castorfou/back-office-lmelp ADR 0001).
+    """
+
+    CWA_LIBRARY = "/volume1/docker/calibre-web-automated"
+
+    @staticmethod
+    def _env_value(path: str, key: str) -> str:
+        with open(path) as f:
+            for raw in f:
+                if raw.startswith(f"{key}="):
+                    return raw.split("=", 1)[1].strip()
+        raise AssertionError(f"{path} should set {key}")
+
+    @staticmethod
+    def _nightly_sync_source_default() -> str:
+        text = Path("scripts/nas/nightly-sync.sh").read_text()
+        match = re.search(r'^SRC="\$\{CALIBRE_SOURCE_PATH:-(.+?)\}/"$', text, re.M)
+        assert match, "nightly-sync.sh should define SRC from CALIBRE_SOURCE_PATH"
+        return match.group(1)
+
+    def test_nas_env_example_points_to_drive_copy(self):
+        assert (
+            self._env_value(".env.nas.example", "CALIBRE_HOST_PATH")
+            == self._nightly_sync_source_default()
+        ), (
+            "CALIBRE_HOST_PATH should be the Synology Drive copy, i.e. the source "
+            "that nightly-sync.sh copies into CWA"
+        )
+
+    def test_nas_env_example_does_not_mount_cwa_library(self):
+        value = self._env_value(".env.nas.example", "CALIBRE_HOST_PATH")
+        assert self.CWA_LIBRARY not in value
+        assert value.startswith("/volume1/"), "Portainer needs an absolute path"
+
+    @pytest.mark.parametrize(
+        "path", sorted(str(p) for p in Path("docs/user").glob("*.md"))
+    )
+    def test_docs_no_longer_mount_cwa_library(self, path):
+        assert f"CALIBRE_HOST_PATH={self.CWA_LIBRARY}" not in Path(path).read_text(), (
+            f"{path} still documents CALIBRE_HOST_PATH on the CWA library"
+        )
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "docs/user/calibre-vers-app-mobile.md",
+            "docs/user/migration-nas.md",
+            "scripts/nas/nightly-sync.sh",
+            "CLAUDE.md",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "stale",
+        [
+            "lit donc la bibliothèque **CWA**",
+            "lmelp-export lit cette bibliothèque CWA",
+            "bibliothèque CWA lue via `CALIBRE_HOST_PATH`",
+            "pointe vers la bibliothèque Calibre-Web-Automated",
+        ],
+    )
+    def test_no_stale_cwa_reading_claim(self, path, stale):
+        assert stale not in Path(path).read_text(), (
+            f"{path} still says lmelp reads the CWA library ({stale!r})"
+        )
+
+    def test_delay_is_counted_from_drive_sync(self):
+        text = Path("docs/user/calibre-vers-app-mobile.md").read_text()
+        delay = text.split("## Délai entre Calibre et l'app", 1)[1].split("\n## ", 1)[0]
+        assert "Synology Drive" in delay
+        assert "nightly-sync.sh" not in delay
