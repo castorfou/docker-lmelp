@@ -40,7 +40,7 @@ Le service utilise les variables suivantes dans le fichier `.env`:
 
 ```bash
 # Configuration Calibre (optionnel - partagée avec le backend)
-CALIBRE_HOST_PATH=/volume1/books/Calibre Library
+CALIBRE_HOST_PATH=/volume1/homes/utilisateur/Drive/Calibre Library
 CALIBRE_VIRTUAL_LIBRARY_TAG=guillaume
 
 # Configuration ADB (optionnel - valeurs par défaut)

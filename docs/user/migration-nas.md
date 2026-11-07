@@ -129,10 +129,13 @@ Points d'attention :
 
 - **Chemins absolus obligatoires** pour Portainer (voir la note dans `CLAUDE.md` sur la
   résolution des chemins relatifs par Portainer) — déjà le cas dans `.env.nas.example`.
-- `CALIBRE_HOST_PATH` pointe vers la bibliothèque Calibre-Web-Automated déjà présente
-  sur ce NAS (`/volume1/docker/calibre-web-automated/books`), montée en lecture seule.
-  Cette bibliothèque est alimentée chaque nuit par `scripts/nas/nightly-sync.sh` ;
-  `lmelp-export` la relit à chaque passage de sa boucle de publication : voir
+- `CALIBRE_HOST_PATH` pointe vers la copie de la bibliothèque Calibre tenue à jour en
+  continu par Synology Drive
+  (`/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library`), montée en
+  lecture seule dans le back-office et dans `lmelp-export`. Ce dossier est sous
+  `/volume1/homes` : vérifiez que les deux conteneurs le lisent après déploiement. La
+  bibliothèque de Calibre-Web-Automated (`/volume1/docker/calibre-web-automated/books`),
+  recopiée chaque nuit par `scripts/nas/nightly-sync.sh`, ne sert qu'à CWA : voir
   [De Calibre à l'app mobile](calibre-vers-app-mobile.md).
 - `PUID`/`PGID` : câblés dans `docker-compose.yml` pour le service `backend`
   (utilisateur non-root configurable, castorfou/back-office-lmelp#258). Valeur `1027` déjà renseignée dans

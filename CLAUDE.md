@@ -161,15 +161,21 @@ quand le noyau contient le correctif rseq (SERVER-136848, ouvert, sans contourne
 
 **Piège découvert lors de l'issue #68 / lmelp-mobile#135** : l'app mobile avait
 systématiquement un jour de retard sur Calibre, sans aucune erreur. `nightly-sync.sh`
-(tâche DSM qui alimente la bibliothèque CWA lue via `CALIBRE_HOST_PATH`) tournait après
-l'unique export quotidien (anacron, en UTC), qui lisait donc toujours la bibliothèque de
-la veille.
+(tâche DSM qui alimente la bibliothèque CWA, alors montée via `CALIBRE_HOST_PATH`)
+tournait après l'unique export quotidien (anacron, en UTC), qui lisait donc toujours la
+bibliothèque de la veille.
 
 **État actuel (issue #77 / lmelp-mobile#153)** : l'anacron a disparu de l'image
 `lmelp-mobile-export`. L'entrypoint lance `publish-loop &`, qui exécute
 `export-and-publish-release` au démarrage puis toutes les `PUBLISH_INTERVAL` s (défaut
-3600, `0` désactive la boucle). L'ordre entre `nightly-sync.sh` et l'export n'a plus
-d'importance : la donnée arrive au plus un intervalle après la fin de la synchro.
+3600, `0` désactive la boucle).
+
+**Source Calibre (issue #79, back-office-lmelp ADR 0001)** : `CALIBRE_HOST_PATH` monte la
+copie **Synology Drive** (`/volume1/homes/…/Calibre Library`, la source de
+`nightly-sync.sh`), pour le back-office et `lmelp-export`. `nightly-sync.sh` ne sert plus
+que CWA : la donnée arrive au plus un intervalle après la synchronisation Drive.
+`tests/test_docker_compose.py::TestCalibreHostPathUsesDriveCopy` exige que
+`CALIBRE_HOST_PATH` de `.env.nas.example` égale le défaut `CALIBRE_SOURCE_PATH` du script.
 
 **Règles** :
 - `lmelp-export` lit les mêmes `NTFY_SERVER_URL` / `NTFY_TOPIC` que `backend` (topic

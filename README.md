@@ -75,7 +75,7 @@ La documentation complète est disponible sur **[castorfou.github.io/docker-lmel
 - **[Configuration](https://castorfou.github.io/docker-lmelp/user/configuration/)** : Variables d'environnement et personnalisation
 - **[Intégration Calibre](https://castorfou.github.io/docker-lmelp/user/calibre-setup/)** : Accès à votre bibliothèque Calibre (optionnel)
 - **[Export vers Android](https://castorfou.github.io/docker-lmelp/user/export-android/)** : Synchronisation avec l'application mobile (optionnel)
-- **[De Calibre à l'app mobile](https://castorfou.github.io/docker-lmelp/user/calibre-vers-app-mobile/)** : Chaîne complète Calibre → CWA → lmelp-export → GitHub Release → app, ordonnancement et diagnostic
+- **[De Calibre à l'app mobile](https://castorfou.github.io/docker-lmelp/user/calibre-vers-app-mobile/)** : Chaîne complète Calibre → Synology Drive → lmelp-export → GitHub Release → app, délais et diagnostic
 - **[Configuration PGX](https://castorfou.github.io/docker-lmelp/user/configuration/#variables-pgx-transcription-automatisee)** : Transcription automatisée via station GPU dédiée (optionnel)
 - **[Backups & Restauration](https://castorfou.github.io/docker-lmelp/user/backup-restore/)** : Gestion des sauvegardes
 - **[Rotation des logs MongoDB](https://castorfou.github.io/docker-lmelp/user/mongodb-log-rotation/)** : Gestion automatique des logs

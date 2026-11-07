@@ -6,20 +6,22 @@ Cette page décrit le trajet complet d'une donnée de lecture (livre lu, en cour
 
 ```mermaid
 flowchart TD
-    A["1. Calibre Desktop<br/>(laptop)"] -->|"Synology Drive<br/>quasi temps réel"| B["2. Bibliothèque Calibre sur le NAS<br/>/volume1/homes/…/Calibre Library/"]
-    B -->|"nightly-sync.sh<br/>tâche DSM, 00:05 heure de Paris"| C["3. Bibliothèque CWA<br/>/volume1/docker/calibre-web-automated/books/"]
-    C -->|"bind-mount :ro<br/>CALIBRE_HOST_PATH"| D["4. Conteneur lmelp-export<br/>lit metadata.db + MongoDB"]
-    D -->|"export-and-publish-release<br/>boucle publish-loop, toutes les heures"| E["5. GitHub Release data-v{N}<br/>castorfou/lmelp-mobile"]
-    E -->|"HTTP, au lancement<br/>ou vérification manuelle"| F["6. App lmelp-mobile"]
+    A["1. Calibre Desktop<br/>(laptop)"] -->|"Synology Drive<br/>quasi temps réel"| B["2. Copie Drive de la bibliothèque<br/>/volume1/homes/…/Calibre Library/"]
+    B -->|"bind-mount :ro<br/>CALIBRE_HOST_PATH"| D["3. Conteneur lmelp-export<br/>lit metadata.db + MongoDB"]
+    D -->|"export-and-publish-release<br/>boucle publish-loop, toutes les heures"| E["4. GitHub Release data-v{N}<br/>castorfou/lmelp-mobile"]
+    E -->|"HTTP, au lancement<br/>ou vérification manuelle"| F["5. App lmelp-mobile"]
+    B -.->|"nightly-sync.sh<br/>tâche DSM, 00:05 heure de Paris"| C["Bibliothèque CWA<br/>/volume1/docker/calibre-web-automated/books/<br/>(hors chaîne de l'app)"]
 ```
 
 | Maillon | Où se configure-t-il ? | Déclencheur | Log |
 |---|---|---|---|
 | 1 → 2 | Client Synology Drive (laptop) | Continu | Client Synology Drive |
-| 2 → 3 | `scripts/nas/nightly-sync.sh` + tâche DSM | Tâche planifiée DSM, 00:05 (heure de Paris) | `/volume1/docker/calibre-web-automated/rsync-nightly.log` |
-| 3 → 4 | `CALIBRE_HOST_PATH` dans `.env.nas` | Montage permanent | — |
-| 4 → 5 | Image `ghcr.io/castorfou/lmelp-mobile-export`, `GH_TOKEN`, `PUBLISH_INTERVAL` | Boucle interne `publish-loop`, au démarrage puis toutes les heures | `${LMELP_EXPORT_LOG_PATH}/publish-data-release.log`, notifications ntfy |
-| 5 → 6 | App `lmelp-mobile` | Lancement de l'app, bouton « Vérifier les mises à jour » | — |
+| 2 → 3 | `CALIBRE_HOST_PATH` dans `.env.nas` | Montage permanent | — |
+| 3 → 4 | Image `ghcr.io/castorfou/lmelp-mobile-export`, `GH_TOKEN`, `PUBLISH_INTERVAL` | Boucle interne `publish-loop`, au démarrage puis toutes les heures | `${LMELP_EXPORT_LOG_PATH}/publish-data-release.log`, notifications ntfy |
+| 4 → 5 | App `lmelp-mobile` | Lancement de l'app, bouton « Vérifier les mises à jour » | — |
+| 2 → CWA | `scripts/nas/nightly-sync.sh` + tâche DSM | Tâche planifiée DSM, 00:05 (heure de Paris) | `/volume1/docker/calibre-web-automated/rsync-nightly.log` |
+
+La dernière ligne alimente Calibre-Web-Automated (CWA) seulement : ni le back-office ni l'app mobile ne lisent la bibliothèque CWA.
 
 ## Les maillons en détail
 
@@ -27,55 +29,26 @@ flowchart TD
 
 Le client Synology Drive du laptop synchronise le dossier `Calibre Library` vers le NAS, dans `/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library/`. La synchronisation est quasi immédiate. Ce maillon est rarement en cause, mais le laptop doit avoir été allumé et connecté après les modifications.
 
-### 2 → 3 : `nightly-sync.sh`
-
-Calibre-Web-Automated (CWA) dispose de sa propre copie de la bibliothèque, dans `/volume1/docker/calibre-web-automated/books/`. Le script [`scripts/nas/nightly-sync.sh`](https://github.com/castorfou/docker-lmelp/blob/main/scripts/nas/nightly-sync.sh) la met à jour :
-
-1. il vérifie que le conteneur `calibre-web-automated` tourne (sinon il s'arrête sans rien synchroniser, car la situation est anormale) ;
-2. il vérifie que les dossiers source et destination existent ;
-3. il arrête CWA et vérifie qu'il est bien arrêté ;
-4. il lance `rsync -av --checksum --exclude='.caltrash/'` de la bibliothèque Calibre vers `books/` ;
-5. il redémarre CWA, ce qui relance le calcul des checksums KOReader. Si rsync échoue, CWA est tout de même redémarré avant que le script ne sorte en erreur.
-
-Chaque étape est journalisée dans `rsync-nightly.log`, qui n'a pas de rotation automatique. Les erreurs s'affichent aussi dans le détail d'exécution du Planificateur de tâches DSM.
-
-**Variables** (les valeurs par défaut sont celles du NAS) :
-
-| Variable | Valeur par défaut |
-|---|---|
-| `CALIBRE_SOURCE_PATH` | `/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library` |
-| `CWA_BOOKS_PATH` | `/volume1/docker/calibre-web-automated/books` |
-| `CWA_CONTAINER` | `calibre-web-automated` |
-| `NIGHTLY_SYNC_LOG` | `/volume1/docker/calibre-web-automated/rsync-nightly.log` |
-
-**Planification** : Panneau de configuration DSM → Planificateur de tâches → Créer → Tâche planifiée → Script défini par l'utilisateur.
-
-- Utilisateur : `root`
-- Planification : tous les jours à **00:05**
-- Commande :
-
-    ```bash
-    bash /volume1/docker/docker-lmelp/scripts/nas/nightly-sync.sh
-    ```
-
-Adaptez le chemin à l'emplacement où le dépôt `docker-lmelp` est cloné sur le NAS. Une copie du script à un autre emplacement fonctionne aussi, à condition de la tenir à jour.
-
-!!! note "Fuseau horaire"
-    Le Planificateur de tâches DSM utilise le fuseau du NAS (Europe/Paris) : 00:05 correspond à 22:05 UTC en été et à 23:05 UTC en hiver.
-
-### 3 → 4 : montage `CALIBRE_HOST_PATH`
+### 2 → 3 : montage `CALIBRE_HOST_PATH`
 
 Dans `.env.nas` :
 
 ```bash
-CALIBRE_HOST_PATH=/volume1/docker/calibre-web-automated/books
+CALIBRE_HOST_PATH=/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library
 ```
 
-`docker-compose.yml` monte ce dossier en lecture seule sur `/calibre` dans `lmelp-export`, et `LMELP_CALIBRE_DB=/calibre/metadata.db`. C'est un bind-mount direct : le conteneur voit `metadata.db` exactement tel qu'il est sur le disque au moment de la lecture, sans délai propre à ce maillon.
+`docker-compose.yml` monte ce dossier en lecture seule sur `/calibre`, dans `lmelp-export` (`LMELP_CALIBRE_DB=/calibre/metadata.db`) comme dans le back-office (`lmelp-backoffice-backend`). C'est un bind-mount direct du **dossier** : le conteneur voit `metadata.db` exactement tel qu'il est sur le disque au moment de la lecture, y compris quand Synology Drive remplace le fichier, sans délai propre à ce maillon.
 
-`lmelp-export` lit donc la bibliothèque **CWA**, pas directement la bibliothèque Calibre synchronisée par Synology Drive. Tant que `nightly-sync.sh` n'est pas passé, l'export ne voit pas les modifications de Calibre.
+Le dossier se trouve sous `/volume1/homes` : les conteneurs doivent avoir le droit de le lire. Pour le vérifier après un redéploiement :
 
-### 4 : conteneur `lmelp-export`
+```bash
+docker exec lmelp-backoffice-backend ls -l /calibre/metadata.db
+docker exec lmelp-export stat /calibre/metadata.db
+```
+
+Une erreur `Permission denied` vient des droits du dossier partagé `homes` dans DSM, pas de `docker-compose.yml`.
+
+### 3 : conteneur `lmelp-export`
 
 Image `ghcr.io/castorfou/lmelp-mobile-export`, construite depuis `Dockerfile.export` du dépôt `lmelp-mobile`. Deux commandes sont disponibles :
 
@@ -111,25 +84,25 @@ Le dernier statut (`ok` ou `failed`) est écrit dans `/var/lib/lmelp-export/last
 docker exec lmelp-export export-and-publish-release
 ```
 
-**Publication conditionnelle** : si le `content_hash` du contenu exporté est identique à celui de la dernière release, la publication est ignorée et le log indique `Contenu inchangé depuis le dernier export (version=…), publication ignorée`. Un export qui tourne sans rien publier est donc normal quand rien n'a changé, mais c'est aussi le symptôme d'une bibliothèque CWA périmée.
+**Publication conditionnelle** : si le `content_hash` du contenu exporté est identique à celui de la dernière release, la publication est ignorée et le log indique `Contenu inchangé depuis le dernier export (version=…), publication ignorée`. Un export qui tourne sans rien publier est donc normal quand rien n'a changé, mais c'est aussi le symptôme d'une copie Drive périmée (laptop éteint, client Synology Drive arrêté).
 
-### 4 → 5 : GitHub Release
+### 3 → 4 : GitHub Release
 
 - Dépôt : `castorfou/lmelp-mobile`
 - Tag : `data-v{N}`, où `N` est la version du schéma Room courant (`ROOM_VERSION`). Chaque version de l'app télécharge le tag de son propre schéma ; quand le schéma évolue, un nouveau tag apparaît (par exemple `data-v9`).
 - Assets : `lmelp.db` et `metadata.json` (`export_date`, `export_version`, `content_hash`, `sha256`, compteurs).
 - Prérequis : `GH_TOKEN` avec la permission `Contents: Read and write` sur ce dépôt (voir [Export vers Android › GH_TOKEN](export-android.md#configuration-requise-gh_token)).
 
-### 5 → 6 : app mobile
+### 4 → 5 : app mobile
 
 L'app compare la version de sa base locale (`db_metadata`) à l'`export_version` de la release distante, et télécharge la nouvelle base si elles diffèrent. La vérification a lieu silencieusement au lancement, ou manuellement via le bouton « Vérifier les mises à jour » de l'écran À propos. Aucune action n'est requise côté NAS.
 
 ## Délai entre Calibre et l'app
 
-!!! note "Au plus un intervalle après `nightly-sync.sh`"
-    `lmelp-export` exporte ce que contient la bibliothèque CWA au moment où il tourne. Une modification faite dans Calibre atteint la release au premier passage de la boucle qui suit la fin de `nightly-sync.sh`, soit **au plus `PUBLISH_INTERVAL` (1 h par défaut) après**. L'ordre entre les deux planifications n'a pas d'importance.
+!!! note "Au plus un intervalle après la synchronisation Synology Drive"
+    `lmelp-export` exporte ce que contient la copie Drive au moment où il tourne. Une modification faite dans Calibre atteint la release au premier passage de la boucle qui suit sa synchronisation par Synology Drive, soit **au plus `PUBLISH_INTERVAL` (1 h par défaut) après**, Synology Drive ne prenant que quelques secondes. Le back-office, qui lit le même dossier, voit la modification dès la synchronisation.
 
-    Pour publier tout de suite après une synchronisation manuelle, lancez `docker exec lmelp-export export-and-publish-release` (voir plus bas).
+    Pour publier tout de suite, lancez `docker exec lmelp-export export-and-publish-release` (voir plus bas).
 
 ## L'app ne se met pas à jour : où chercher
 
@@ -142,7 +115,7 @@ Remontez la chaîne depuis la fin, et comparez les dates à chaque maillon.
     gh release download data-v9 --repo castorfou/lmelp-mobile -p metadata.json -O - | jq
     ```
 
-    `export_date` indique le dernier export **publié**. S'il est récent, le problème est côté app (maillon 5 → 6) : lancez « Vérifier les mises à jour ».
+    `export_date` indique le dernier export **publié**. S'il est récent, le problème est côté app (maillon 4 → 5) : lancez « Vérifier les mises à jour ».
 
 2. **Quelle base a l'app ?** Comparez la version `db_metadata` affichée dans l'écran À propos (ou dans `lmelp.db` : `sqlite3 lmelp.db "SELECT * FROM db_metadata"`) à `export_version` de `metadata.json`.
 
@@ -156,7 +129,7 @@ Remontez la chaîne depuis la fin, et comparez les dates à chaque maillon.
 
     Chaque passage de la boucle ajoute au log une ligne `=== <date> : ok ===` ou `=== <date> : failed ===` (date en UTC), suivie de la sortie complète de l'export. `last_status` donne le résultat du dernier passage. Si aucune ligne n'est récente, vérifiez que `PUBLISH_INTERVAL` ne vaut pas `0` et que le conteneur tourne.
 
-    `Contenu inchangé … publication ignorée` alors que des lectures ont changé dans Calibre signifie que l'export a lu une bibliothèque CWA sans ces changements : passez au point suivant.
+    `Contenu inchangé … publication ignorée` alors que des lectures ont changé dans Calibre signifie que l'export a lu une copie Drive sans ces changements : passez au point suivant.
 
 4. **Quand `metadata.db` a-t-il été modifié, vu depuis `lmelp-export` ?**
 
@@ -164,19 +137,55 @@ Remontez la chaîne depuis la fin, et comparez les dates à chaque maillon.
     docker exec lmelp-export stat /calibre/metadata.db
     ```
 
-    L'heure affichée est en UTC. Si elle est **postérieure** au dernier passage de l'export, le prochain passage de la boucle la prendra en compte ; sinon, `nightly-sync.sh` n'a pas recopié les changements.
+    L'heure affichée est en UTC. Si elle est **postérieure** au dernier passage de l'export, le prochain passage de la boucle la prendra en compte ; sinon, Synology Drive n'a pas encore reçu les changements. Une erreur `Permission denied` ou `No such file` indique un problème de montage (voir [2 → 3](#2-3-montage-calibre_host_path)).
 
-5. **`nightly-sync.sh` a-t-il tourné correctement ?**
+5. **Synology Drive a-t-il synchronisé ?** Vérifiez la date de `metadata.db` dans `/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library/`, et l'état du client Synology Drive sur le laptop.
+
+Pour tester toute la chaîne sans attendre le prochain passage de la boucle : modifiez un livre dans Calibre, vérifiez que la date de `metadata.db` a changé dans le conteneur (point 4), puis lancez `docker exec lmelp-export export-and-publish-release`.
+
+## Branche annexe : bibliothèque CWA et `nightly-sync.sh`
+
+Calibre-Web-Automated (CWA) dispose de sa propre copie de la bibliothèque, dans `/volume1/docker/calibre-web-automated/books/`. Cette copie ne sert qu'à CWA : ni le back-office ni `lmelp-export` ne la lisent, et l'heure de sa mise à jour n'a aucun effet sur l'app mobile. Le script [`scripts/nas/nightly-sync.sh`](https://github.com/castorfou/docker-lmelp/blob/main/scripts/nas/nightly-sync.sh) la met à jour depuis la copie Drive :
+
+1. il vérifie que le conteneur `calibre-web-automated` tourne (sinon il s'arrête sans rien synchroniser, car la situation est anormale) ;
+2. il vérifie que les dossiers source et destination existent ;
+3. il arrête CWA et vérifie qu'il est bien arrêté ;
+4. il lance `rsync -av --checksum --exclude='.caltrash/'` de la copie Drive vers `books/` ;
+5. il redémarre CWA, ce qui relance le calcul des checksums KOReader. Si rsync échoue, CWA est tout de même redémarré avant que le script ne sorte en erreur.
+
+Chaque étape est journalisée dans `rsync-nightly.log`, qui n'a pas de rotation automatique :
+
+```bash
+tail -n 50 /volume1/docker/calibre-web-automated/rsync-nightly.log
+```
+
+Un passage réussi se termine par `=== Fin du script : succès ===` ; une erreur apparaît sur une ligne `ERREUR:`, et aussi dans le détail d'exécution du Planificateur de tâches DSM.
+
+**Variables** (les valeurs par défaut sont celles du NAS) :
+
+| Variable | Valeur par défaut |
+|---|---|
+| `CALIBRE_SOURCE_PATH` | `/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library` |
+| `CWA_BOOKS_PATH` | `/volume1/docker/calibre-web-automated/books` |
+| `CWA_CONTAINER` | `calibre-web-automated` |
+| `NIGHTLY_SYNC_LOG` | `/volume1/docker/calibre-web-automated/rsync-nightly.log` |
+
+`CALIBRE_SOURCE_PATH` et `CALIBRE_HOST_PATH` désignent le même dossier.
+
+**Planification** : Panneau de configuration DSM → Planificateur de tâches → Créer → Tâche planifiée → Script défini par l'utilisateur.
+
+- Utilisateur : `root`
+- Planification : tous les jours à **00:05**
+- Commande :
 
     ```bash
-    tail -n 50 /volume1/docker/calibre-web-automated/rsync-nightly.log
+    bash /volume1/docker/docker-lmelp/scripts/nas/nightly-sync.sh
     ```
 
-    Cherchez `=== Fin du script : succès ===` à la date attendue, ou une ligne `ERREUR:`. Le détail d'exécution de la tâche dans le Planificateur DSM affiche aussi l'erreur.
+Adaptez le chemin à l'emplacement où le dépôt `docker-lmelp` est cloné sur le NAS. Une copie du script à un autre emplacement fonctionne aussi, à condition de la tenir à jour.
 
-6. **Synology Drive a-t-il synchronisé ?** Vérifiez la date de `metadata.db` dans `/volume1/homes/guillaume/Backup/framework/home/guillaume/Calibre Library/`, et l'état du client Synology Drive sur le laptop.
-
-Pour tester toute la chaîne sans attendre la nuit ni le prochain passage de la boucle : lancez la tâche DSM manuellement (bouton « Exécuter »), attendez le message de succès dans `rsync-nightly.log`, puis lancez `docker exec lmelp-export export-and-publish-release`.
+!!! note "Fuseau horaire"
+    Le Planificateur de tâches DSM utilise le fuseau du NAS (Europe/Paris) : 00:05 correspond à 22:05 UTC en été et à 23:05 UTC en hiver.
 
 ## Voir aussi
 
@@ -189,3 +198,4 @@ Pour tester toute la chaîne sans attendre la nuit ni le prochain passage de la 
 - [castorfou/lmelp-mobile#135](https://github.com/castorfou/lmelp-mobile/issues/135) : diagnostic d'une app bloquée un jour en arrière, causé par `nightly-sync.sh` planifié à 04:00, après l'export anacron.
 - [castorfou/docker-lmelp#68](https://github.com/castorfou/docker-lmelp/issues/68) : cette page et le versionnement de `nightly-sync.sh`.
 - [castorfou/lmelp-mobile#153](https://github.com/castorfou/lmelp-mobile/issues/153) et [castorfou/docker-lmelp#77](https://github.com/castorfou/docker-lmelp/issues/77) : l'export quotidien par anacron, qui imposait à `nightly-sync.sh` de finir avant 00 h 10 UTC, est remplacé par la boucle horaire et ses notifications ntfy.
+- [castorfou/docker-lmelp#79](https://github.com/castorfou/docker-lmelp/issues/79) : `CALIBRE_HOST_PATH` monte la copie Synology Drive au lieu de la bibliothèque CWA, rafraîchie une seule fois par nuit (décision castorfou/back-office-lmelp ADR 0001).
