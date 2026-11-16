@@ -15,56 +15,40 @@ Pour résoudre ces problèmes, une image custom a été créée avec anacron int
 ### 1. Extension de l'image officielle
 
 ```dockerfile
-FROM mongo:8.2
+FROM mongo:8
 ```
 
 **Raison** : Partir de l'image officielle garantit :
 - Compatibilité avec MongoDB
-- Correctifs de la série 8.2 à chaque reconstruction de l'image, déployés ensuite par Watchtower
+- Correctifs de la majeure 8 à chaque reconstruction de l'image, déployés ensuite par Watchtower
 - Pas de réinvention de la roue
 
-**Version épinglée** : le tag désigne une série (`mongo:8.2`), jamais `latest`.
+**Version épinglée** : le tag désigne une majeure (`mongo:8`), jamais `latest`.
 `mongod` n'ouvre que des données dont la `featureCompatibilityVersion` (FCV) appartient à
 la majeure précédente ; un tag flottant qui change de majeure lors d'une reconstruction
 laisse le conteneur en redémarrage permanent (code de sortie 62). Un changement de majeure
 se fait donc en modifiant ce `FROM`, selon la procédure de
 [montée de version](../user/mongodb-upgrade.md).
 
-**Série 8.2 plutôt que `mongo:8`** : `mongod` 8.0.21 et suivantes, 8.3 et 9.0 s'arrêtent au
-démarrage sur un noyau affiché de 6.19 à 7.0.13, ce qui inclut tous les noyaux Ubuntu 7.0
-(`7.0.0-NN`) : runners GitHub Actions, postes Ubuntu. La série 8.2 n'a pas ce contrôle.
-Le retour à `mongo:8` attend la correction de
-[SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848).
-
-**Surveillance de `mongo:8`** : `.github/workflows/mongo-kernel-watch.yml` (lundi 06:00 UTC
-et `workflow_dispatch`, runner `ubuntu-24.04`) lance `scripts/check_mongo_kernel_fix.sh`,
-qui porte toute la logique :
-
-| Résultat de `docker run --rm --pull always --entrypoint mongod mongo:8 --version` | Action | Job |
-|---|---|---|
-| Code 0 et `db version v8.3` ou plus | Ouvre l'issue de bascule et notifie ntfy | succès |
-| Code non nul et `Linux kernel versions 6.19` | Rien : toujours bloqué | succès |
-| Autre (pull impossible, message inconnu, version < 8.3) | Affiche la sortie | échec |
-
-L'issue « Revenir à mongo:8 : SERVER-136848 corrigé » porte le label `mongo-kernel-watch`,
-créé par le script s'il manque. Une issue existante, ouverte ou fermée, avec ce titre ou ce
-label bloque toute nouvelle issue et toute nouvelle notification. La notification ntfy
-utilise les secrets GitHub `NTFY_SERVER_URL` et `NTFY_TOPIC` (mêmes valeurs que le `.env` du
-NAS). Sans eux, le script avertit et ouvre l'issue quand même. Un échec de l'envoi fait
-échouer le job, après l'ouverture de l'issue. Le topic sert de mot de passe : le script ne
-l'affiche jamais (pas de `set -x`, sortie de `curl` jetée). Les tests
-`tests/test_mongo_kernel_watch.py` simulent `docker`, `gh`, `curl` et `uname` par des stubs
-placés en tête du `PATH`.
+**Noyaux Linux 6.19 à 7.0.13** : certaines versions de `mongod` (8.0.21 et suivantes, 8.3
+jusqu'à 8.3.13 au moins, premières 9.0) s'arrêtent au démarrage sur un noyau affiché de
+6.19 à 7.0.13, ce qui inclut tous les noyaux Ubuntu 7.0 (`7.0.0-NN`) : runners GitHub
+Actions, postes Ubuntu
+([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)). Les versions actuelles
+de chaque série démarrent ; un tag de série les suit. `KERNEL_FIXED_MONGO_RELEASES`, dans
+`tests/test_mongodb_image.py`, donne pour chaque série concernée la première version
+vérifiée sur un noyau Ubuntu 7.0.
 
 `tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse tout tag non numérique,
 dans le Dockerfile comme pour les images `mongo` officielles des fichiers compose, ainsi
-qu'une série soumise au contrôle du noyau (`test_base_image_starts_on_ubuntu_7_kernels`), et
+qu'une version de correctif antérieure à ces bornes
+(`test_base_image_starts_on_ubuntu_7_kernels`), et
 `test_mongod_version_matches_pinned_base_image` compare le binaire de l'image construite au
 tag épinglé.
 
 **Override local `docker-compose.mongo7.yml`** : remplace l'image par l'officielle
 `mongo:7.0` (sans anacron ni scripts) sur les postes dont le noyau Linux, de 6.19 à 7.0.13,
-empêche les séries soumises au contrôle du noyau (voir ci-dessus) de démarrer. Il exige des
+empêche une version soumise au contrôle du noyau (voir ci-dessus) de démarrer. Il exige des
 données en FCV 7.0.
 
 ### 2. Utilisation d'anacron au lieu de cron
