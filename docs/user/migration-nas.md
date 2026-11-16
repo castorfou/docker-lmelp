@@ -264,7 +264,8 @@ URL reste liée à celle-ci : la désinstaller, puis la réinstaller depuis
 - [:x:] (si utilisé) L'export Android fonctionne depuis le NAS — cf. limitations ci-dessous
 - [:white_check_mark:] (si utilisé) La transcription PGX fonctionne : page
   `/transcription-pgx` du back-office, toutes les étapes de diagnostic au vert (clé SSH
-  autorisée à l'étape 7, `PGX_HOST` configuré en IP directe — voir
+  autorisée à l'étape 7, `PGX_HOST_KEY` renseignée avec la clé d'hôte lue sur PGX,
+  `PGX_HOST` configuré en IP directe — voir
   [Variables PGX](configuration.md#variables-pgx-transcription-automatisee))
 
 ## Étape 10 — Automatiser la synchronisation RSS via Automatisch

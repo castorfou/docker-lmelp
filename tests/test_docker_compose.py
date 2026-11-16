@@ -594,6 +594,34 @@ class TestBackendPgxConfiguration:
             "backend should define PGX_REMOTE_TRANSCRIPTION_ROOT environment variable"
         )
 
+    @pytest.mark.parametrize("var", ["PGX_HOST_KEY", "PGX_HOST_CANDIDATES"])
+    def test_backend_forwards_pgx_host_discovery_env(self, var):
+        """Backend receives PGX host key and candidate ranges from .env (issue #87).
+
+        back-office-lmelp identifies PGX by its SSH host key (ADR 0002) and
+        searches PGX_HOST_CANDIDATES when PGX_HOST no longer answers. Without
+        the passthrough, the .env value never reaches the container.
+        """
+        env_list = self._get_env_list(self._get_backend())
+        assert f"{var}=${{{var}:-}}" in env_list, (
+            f"backend should forward {var} from .env with an empty default"
+        )
+
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    @pytest.mark.parametrize("var", ["PGX_HOST_KEY", "PGX_HOST_CANDIDATES"])
+    def test_env_examples_document_pgx_host_discovery(self, env_file, var):
+        """Both env templates expose the PGX host discovery variables."""
+        with open(env_file) as f:
+            assert var in f.read(), f"{env_file} should document {var}"
+
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    def test_env_examples_explain_how_to_read_pgx_host_key(self, env_file):
+        """Both env templates say where to read PGX's host key (on PGX itself)."""
+        with open(env_file) as f:
+            assert "cat /etc/ssh/ssh_host_ed25519_key.pub" in f.read(), (
+                f"{env_file} should say how to read PGX's host key on PGX"
+            )
+
     def test_backend_has_pgx_keys_volume(self):
         """Verify that backend mounts a persistent volume on /app/keys."""
         service = self._get_backend()
