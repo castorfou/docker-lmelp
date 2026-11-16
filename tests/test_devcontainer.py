@@ -17,6 +17,7 @@ Docker-in-Docker comes from the PyFoundry template (``docker_in_docker`` in
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -64,8 +65,11 @@ def strip_jsonc_comments(text: str) -> str:
     return "".join(out)
 
 
-def load_jsonc(path: Path) -> dict:
-    return json.loads(strip_jsonc_comments(path.read_text(encoding="utf-8")))
+def load_jsonc(path: Path) -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(
+        strip_jsonc_comments(path.read_text(encoding="utf-8"))
+    )
+    return data
 
 
 def parse_version(version: str) -> tuple[int, ...]:
@@ -78,8 +82,9 @@ def devcontainer() -> dict:
 
 
 @pytest.fixture(scope="module")
-def lock() -> dict:
-    return json.loads(LOCK.read_text(encoding="utf-8"))
+def lock() -> dict[str, Any]:
+    data: dict[str, Any] = json.loads(LOCK.read_text(encoding="utf-8"))
+    return data
 
 
 def dind_entries(features: dict) -> list[tuple[str, int]]:

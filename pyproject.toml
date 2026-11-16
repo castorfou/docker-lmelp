@@ -34,6 +34,10 @@ dev = [
     "pytest",
     "ruff",
     "mypy",
+    "pandas-stubs",            # Types pour pandas (lus par mypy dans le venv)
+    "types-python-dateutil",
+    "types-requests",
+    "types-PyYAML",            # Types pour yaml (tests du compose et des scripts)
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.4.0",
     "mkdocs-git-revision-date-localized-plugin>=1.2.0",
@@ -51,9 +55,6 @@ Homepage = "https://github.com/castorfou/docker-lmelp"
 Documentation = "https://castorfou.github.io/docker-lmelp"
 Repository = "https://github.com/castorfou/docker-lmelp.git"
 Issues = "https://github.com/castorfou/docker-lmelp/issues"
-
-[project.scripts]
-docker_lmelp_setup = "scripts.setup:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -143,8 +144,8 @@ classmethod-decorators = ["classmethod", "pydantic.validator"]
 python_version = "3.11"
 platform = "linux"
 
-# Chemins à analyser : exclure src/ car déjà dans sys.path via editable install
-files = ["tests"]
+# Chemins à analyser : `mypy` seul vérifie le code et les tests, comme le hook et la CI
+files = ["src", "tests"]
 
 # Ne pas chercher de namespace packages pour éviter la détection en double
 namespace_packages = false

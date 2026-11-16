@@ -74,7 +74,9 @@ class TestNightlySyncScriptBehaviour:
         path.write_text(f'#!/bin/bash\necho "{name} $*" >> "$CALLS_LOG"\n{body}\n')
         path.chmod(0o755)
 
-    def _run(self, tmp_path: Path, rsync_exit: int = 0, running: bool = True):
+    def _run(
+        self, tmp_path: Path, rsync_exit: int = 0, running: bool = True
+    ) -> tuple[subprocess.CompletedProcess[str], list[str], Path, Path]:
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         state = tmp_path / "state"
