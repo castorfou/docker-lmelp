@@ -137,12 +137,27 @@ transcription PGX n'est pas utilisable.
 
 ```bash
 PGX_HOST=192.168.x.x
+PGX_HOST_KEY=ssh-ed25519 AAAA...
+PGX_HOST_CANDIDATES=192.168.1.0/24,10.8.0.0/24
 PGX_USER=votre_utilisateur_ssh
 PGX_REMOTE_AUDIO_ROOT=/chemin/distant/audios
 PGX_REMOTE_TRANSCRIPTION_ROOT=/chemin/distant/transcriptions
 ```
 
-Ces quatre variables sont lues par le service `backend`.
+Ces variables sont lues par le service `backend`.
+
+Le backend reconnaît PGX par sa **clé d'hôte SSH**, pas par son adresse :
+
+- `PGX_HOST_KEY` (obligatoire) : clé publique d'hôte ED25519 de PGX, sur une seule
+  ligne `ssh-ed25519 AAAA…`. Elle se lit **sur PGX même** :
+  `cat /etc/ssh/ssh_host_ed25519_key.pub` (empreinte :
+  `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`). Sans elle, les actions PGX sont
+  désactivées dans `/transcription-pgx`.
+- `PGX_HOST` : première adresse essayée, toujours en IP directe.
+- `PGX_HOST_CANDIDATES` (facultative) : plages CIDR séparées par des virgules. Si PGX
+  ne répond pas à `PGX_HOST` avec sa clé d'hôte, le backend la cherche dans ces
+  plages. Une adresse qui change (DHCP, VPN, autre réseau) ne demande alors aucune
+  correction à la main.
 
 !!! warning "PGX_HOST doit être une IP directe, jamais un nom `.local` ou un nom court"
     Un nom mDNS (`thinkstationpgx-d7ba.local`) ou un nom court (`pgx`) peut fonctionner
@@ -159,8 +174,8 @@ Ces quatre variables sont lues par le service `backend`.
     (DNS configuré dans DSM, souvent un résolveur public qui ignore ces noms). Un nom qui
     fonctionne sur un poste de développement n'est donc pas garanti ailleurs.
 
-    **Toujours utiliser l'IP directe** de PGX pour `PGX_HOST`, idéalement une IP fixe
-    (réservation DHCP côté routeur) pour qu'elle ne change pas dans le temps.
+    **Toujours utiliser l'IP directe** de PGX pour `PGX_HOST`. Si cette IP peut changer,
+    renseigner `PGX_HOST_CANDIDATES` avec les plages où PGX peut se trouver.
 
 La clé SSH dédiée du backend (distincte de toute clé personnelle) est générée
 automatiquement au premier démarrage du conteneur `backend` et persistée sur le volume

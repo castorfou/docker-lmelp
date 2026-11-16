@@ -105,7 +105,11 @@ services:
       # PGX - Transcription automatisée (station GPU dédiée, cf. back-office-lmelp#302)
       # Clé SSH dédiée au backend (distincte de la clé historique
       # pgx_lmelp_ed25519, cf. issue #66).
+      # PGX est reconnue par sa clé d'hôte SSH, et cherchée dans
+      # PGX_HOST_CANDIDATES si PGX_HOST ne répond pas (back-office-lmelp ADR 0002).
       - PGX_HOST=${PGX_HOST:-}
+      - PGX_HOST_KEY=${PGX_HOST_KEY:-}
+      - PGX_HOST_CANDIDATES=${PGX_HOST_CANDIDATES:-}
       - PGX_USER=${PGX_USER:-}
       - PGX_SSH_KEY_PATH=/app/keys/pgx_ed25519
       - PGX_REMOTE_AUDIO_ROOT=${PGX_REMOTE_AUDIO_ROOT:-}
