@@ -7,6 +7,7 @@ particularly focusing on healthcheck endpoints.
 
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -360,9 +361,10 @@ class TestStreamlitServiceRemoved:
     )
 
     @staticmethod
-    def _load_compose() -> dict:
+    def _load_compose() -> dict[str, Any]:
         with open("docker-compose.yml") as f:
-            return yaml.safe_load(f)
+            config: dict[str, Any] = yaml.safe_load(f)
+        return config
 
     def test_lmelp_service_removed(self):
         """The Streamlit lmelp service is no longer defined."""
@@ -705,7 +707,8 @@ class TestMongoHealthcheckHome:
     def _mongo_healthcheck() -> dict:
         with open("docker-compose.yml") as f:
             config = yaml.safe_load(f)
-        return config["services"]["mongo"]["healthcheck"]
+        healthcheck: dict[str, Any] = config["services"]["mongo"]["healthcheck"]
+        return healthcheck
 
     def test_mongo_healthcheck_uses_cmd_shell(self):
         """Overriding HOME inline requires a shell: CMD-SHELL, not CMD."""

@@ -126,7 +126,7 @@ class TestScriptBehaviour:
         existing_issues: int = 0,
         curl_exit: int = 0,
         ntfy: bool = True,
-    ):
+    ) -> tuple[subprocess.CompletedProcess[str], str]:
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         (tmp_path / "docker_output").write_text(docker_output)

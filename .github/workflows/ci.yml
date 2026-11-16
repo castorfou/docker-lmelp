@@ -21,13 +21,10 @@ jobs:
 
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: 🐍 Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
+      uses: astral-sh/setup-uv@v10.3.3
 
     - name: 🐍 Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
@@ -41,7 +38,7 @@ jobs:
     - name: 🧪 Run tests
       run: |
         if [ -f tests/test_*.py ] || [ -d tests/ ]; then
-          uv run pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=xml
+          uv run pytest tests/ -v --cov=src --cov-report=term-missing
         else
           echo "No tests found. Creating placeholder test structure..."
           mkdir -p tests
@@ -52,30 +49,20 @@ jobs:
         fi
 
     - name: 🔧 Type check with mypy
-      run: |
-        if [ -d src/ ]; then
-          uv run mypy src/ || echo "⚠️ MyPy found issues (expected for new projects)"
-        else
-          echo "No src/ directory found"
-        fi
-
-    - name: 📊 Upload coverage to Codecov
-      if: matrix.python-version == '3.11'
-      uses: codecov/codecov-action@v4
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
-        fail_ci_if_error: false
+      run: uv run mypy
 
   pre-commit:
     name: 🪝 Pre-commit hooks
     runs-on: ubuntu-latest
+    env:
+      # Venv hors du dépôt, comme dans le devcontainer (hook no-venv-at-root)
+      UV_PROJECT_ENVIRONMENT: /tmp/venv
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: 🐍 Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v10.3.3
 
     - name: 🐍 Set up Python
       run: uv python install 3.11
@@ -87,8 +74,7 @@ jobs:
       run: uv sync --extra dev
 
     - name: 🪝 Run pre-commit hooks
-      run: |
-        uv run pre-commit run --all-files --show-diff-on-failure || echo "⚠️ Pre-commit hooks found issues"
+      run: uv run pre-commit run --all-files --show-diff-on-failure
 
   build:
     name: 🏗️ Build package
@@ -96,10 +82,10 @@ jobs:
     needs: [tests, pre-commit]
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     - name: 🐍 Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v10.3.3
 
     - name: 🐍 Set up Python
       run: uv python install 3.11
@@ -111,15 +97,7 @@ jobs:
       run: uv build
 
     - name: 📤 Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: dist
         path: dist/
-
-    - name: ✅ Verify package
-      run: |
-        echo "📦 Built packages:"
-        ls -la dist/
-
-        echo "📋 Package metadata:"
-        ls -1 dist/*.whl | head -1 | xargs basename | sed 's/-[0-9].*//' | xargs -I {} uv run python -m pip show {} || echo "Package not installed yet"
