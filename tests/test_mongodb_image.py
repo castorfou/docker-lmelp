@@ -15,11 +15,28 @@ import pytest
 # A version tag such as "8", "8.3" or "8.3.1" -- never "latest" (issue #74).
 PINNED_MONGO_TAG = re.compile(r"^\d+(\.\d+){0,2}$")
 
-# mongod 8.0.21+, 8.3 and 9.0 refuse to start when `uname -r` reports a kernel
-# from 6.19 to 7.0.13, which includes every Ubuntu 7.0 kernel (`7.0.0-NN`, the
-# upstream patch level is hidden): GitHub runners, Ubuntu laptops. These
-# release series have no such startup check (SERVER-136848, still open).
-KERNEL_CHECK_FREE_MONGO_SERIES = {"7.0", "8.2"}
+# Some mongod releases (8.0.21+, early 8.3 such as 8.3.13, early 9.0) refuse to
+# start when `uname -r` reports a kernel from 6.19 to 7.0.13, which includes
+# every Ubuntu 7.0 kernel (`7.0.0-NN`): GitHub runners, Ubuntu laptops
+# (SERVER-136848). For each affected series, a release verified to start on an
+# Ubuntu 7.0 kernel (7.0.0-43-generic, 2026-11-16). These are conservative
+# bounds, not the first fixed releases: a patch release below them is refused
+# even if it might start. A series tag (`8`, `8.3`) follows the latest patch.
+KERNEL_FIXED_MONGO_RELEASES: dict[tuple[int, ...], tuple[int, ...]] = {
+    (8, 0): (8, 0, 38),
+    (8, 3): (8, 3, 17),
+    (9, 0): (9, 0, 8),
+}
+
+
+def _starts_on_ubuntu_7_kernels(tag: str) -> bool:
+    """Whether mongo:<tag> resolves to a mongod release that starts on an
+    Ubuntu 7.0 kernel (SERVER-136848)."""
+    version = tuple(int(part) for part in tag.split("."))
+    if len(version) < 3:
+        return True
+    fixed = KERNEL_FIXED_MONGO_RELEASES.get(version[:2])
+    return fixed is None or version >= fixed
 
 
 def _mongo_base_image_tag() -> str | None:
@@ -188,16 +205,34 @@ class TestMongoBaseImagePinned:
 
     def test_base_image_starts_on_ubuntu_7_kernels(self):
         """SERVER-136848: on a kernel reported as 6.19 to 7.0.13, which is every
-        Ubuntu 7.0 kernel, mongod 8.0.21+, 8.3 and 9.0 exit at startup. The
-        image would not start in CI or on an Ubuntu laptop. Pin a release series
-        without that check (mongo:8.2) until MongoDB fixes the detection."""
-        tag = _mongo_base_image_tag() or "latest"
-        series = ".".join(tag.split(".")[:2])
-        assert series in KERNEL_CHECK_FREE_MONGO_SERIES, (
-            f"mongodb.Dockerfile builds FROM mongo:{tag}, a series that refuses "
-            f"to start on Ubuntu 7.0 kernels (SERVER-136848). Use one of "
-            f"{sorted(KERNEL_CHECK_FREE_MONGO_SERIES)}, e.g. mongo:8.2."
+        Ubuntu 7.0 kernel, some mongod releases exit at startup. The image would
+        not start in CI or on an Ubuntu laptop. A series tag follows the fixed
+        releases; a pinned patch release must not be older than the fix."""
+        tag = _mongo_base_image_tag()
+        assert tag is not None and _starts_on_ubuntu_7_kernels(tag), (
+            f"mongodb.Dockerfile builds FROM mongo:{tag}, a release that refuses "
+            f"to start on Ubuntu 7.0 kernels (SERVER-136848). Use a series tag "
+            f"such as mongo:8."
         )
+
+    @pytest.mark.parametrize(
+        ("tag", "starts"),
+        [
+            ("8", True),
+            ("8.2", True),
+            ("8.3", True),
+            ("8.2.5", True),
+            ("8.3.17", True),
+            ("9.0.8", True),
+            ("8.3.13", False),
+            ("8.0.21", False),
+            ("9.0.0", False),
+        ],
+    )
+    def test_kernel_check_classifies_tags(self, tag: str, starts: bool) -> None:
+        """8.3.13 was measured exiting on an Ubuntu 7.0 kernel (PR #80);
+        8.3.17 was measured starting there (issue #88)."""
+        assert _starts_on_ubuntu_7_kernels(tag) is starts
 
     def test_compose_files_do_not_use_floating_official_mongo_tag(self):
         """Compose files pulling the official image directly (e.g. the local

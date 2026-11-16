@@ -11,10 +11,11 @@
 # major, so a floating tag jumping to the next major on a rebuild leaves the
 # container in a restart loop (exit code 62). Major upgrades are done one
 # version at a time, see docs/user/mongodb-upgrade.md.
-# 8.2 rather than 8 (= 8.3): mongod 8.0.21+, 8.3 and 9.0 exit at startup on
-# kernels reported as 6.19 to 7.0.13, which includes every Ubuntu 7.0 kernel
-# (GitHub runners, Ubuntu laptops), SERVER-136848. Back to mongo:8 once fixed.
-FROM mongo:8.2
+# Some 8.0, 8.3 and 9.0 releases (e.g. 8.3.13) exit at startup on every Ubuntu
+# 7.0 kernel (SERVER-136848); the current releases of each series start there,
+# so a series tag is safe. Never pin a patch release older than the fix, see
+# KERNEL_FIXED_MONGO_RELEASES in tests/test_mongodb_image.py.
+FROM mongo:8
 
 # Install anacron and required utilities
 RUN apt-get update && \

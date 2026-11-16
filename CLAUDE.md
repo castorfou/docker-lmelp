@@ -125,7 +125,7 @@ précédente : 9.0 accepte les FCV 8.0 et 8.3, pas la 8.2 en place. Résultat : 
 sortie 62 et redémarrage en boucle.
 
 **Règles** :
-- Le `FROM` de `mongodb.Dockerfile` désigne une version numérique (`mongo:8.2`), jamais
+- Le `FROM` de `mongodb.Dockerfile` désigne une version numérique (`mongo:8`), jamais
   `latest`. `tests/test_mongodb_image.py::TestMongoBaseImagePinned` le vérifie, ainsi que
   pour les images `mongo` officielles des fichiers `docker-compose*.yml`.
 - Une montée de majeure est manuelle : sauvegarde, une majeure à la fois, puis
@@ -137,30 +137,29 @@ sortie 62 et redémarrage en boucle.
 - `docker-compose.mongo7.yml` (override local, `mongo:7.0`) exige des données en FCV 7.0 :
   une copie du volume du NAS ne s'y ouvre pas.
 
-### `mongo:8` ne démarre pas sur un noyau Ubuntu 7.0 : l'image reste en 8.2
+### Certaines versions de `mongod` ne démarrent pas sur un noyau Ubuntu 7.0
 
 **Piège découvert lors de la PR #80** : la CI a échoué sur tous les tests qui démarrent
 l'image, alors que rien côté mongo n'avait changé. `mongod` s'arrêtait avec *"MongoDB
 cannot start: Linux kernel versions 6.19 and newer has a known incompatibility"*. Les
 runners GitHub étaient passés sur un noyau `7.0.0-1017-azure`, et `mongo:8` pointait sur la
-8.3.13. MongoDB 8.0.21 et suivantes, 8.3 et 9.0 lisent `uname -r` et refusent les noyaux
-de 6.19 à 7.0.13. Or Ubuntu affiche toujours `7.0.0-NN` et masque la version amont, même
-quand le noyau contient le correctif rseq (SERVER-136848, ouvert, sans contournement).
+8.3.13. Ces versions lisent `uname -r` et refusent les noyaux de 6.19 à 7.0.13 ; Ubuntu
+affiche toujours `7.0.0-NN`. L'image est restée en `mongo:8.2` (sans ce contrôle) jusqu'à
+la correction de SERVER-136848, puis est revenue à `mongo:8` (issue #88) : 8.0.38, 8.3.17 et
+9.0.8 démarrent sur un noyau `7.0.0-43-generic`, 8.3.13 non.
 
 **Règles** :
-- `mongodb.Dockerfile` reste sur `FROM mongo:8.2`, qui n'a pas ce contrôle, tant que
-  SERVER-136848 n'est pas corrigé. `TestMongoBaseImagePinned::
-  test_base_image_starts_on_ubuntu_7_kernels` refuse une autre série.
-- Passer d'un binaire 8.3 à 8.2 n'est sûr qu'avec une FCV déjà à 8.2. Le NAS était en
-  binaire 8.3.11 et FCV 8.2 au moment du changement. Relever binaire **et** FCV avant tout
-  changement de série.
+- Le `FROM` reste un tag de série (`mongo:8`), qui suit les correctifs. Un patch épinglé
+  doit être au moins la version vérifiée de sa série (borne prudente, pas forcément la
+  première corrigée)
+  (`KERNEL_FIXED_MONGO_RELEASES` dans `tests/test_mongodb_image.py`, contrôlé par
+  `test_base_image_starts_on_ubuntu_7_kernels`).
+- Changer de série n'est sûr qu'avec une FCV acceptée par le nouveau binaire : un binaire
+  8.3 ouvre une FCV 8.2, un binaire 8.2 n'ouvre pas une FCV 8.3. Relever binaire **et**
+  FCV avant tout changement de série. `mongo:8` change de série tout seul (8.3, puis les
+  suivantes) : relever les deux après chaque saut.
 - Un échec soudain des tests d'image mongo en CI, sans changement côté mongo, vient
   d'abord du runner (noyau) ou du tag de base qui a bougé : lire la sortie de `mongod`.
-- Le retour à `mongo:8` est surveillé chaque semaine par `mongo-kernel-watch.yml`
-  (`scripts/check_mongo_kernel_fix.sh`, issue #81). Il ouvre une seule fois l'issue
-  « Revenir à mongo:8 : SERVER-136848 corrigé » et notifie ntfy. La bascule reste une PR
-  relue, qui supprime aussi ce workflow et son script. Le topic ntfy (secret
-  `NTFY_TOPIC`) ne doit jamais apparaître dans un log : pas de `set -x` dans le script.
 
 ### Docker du devcontainer : `docker-in-docker:4` minimum, activé par cruft
 
