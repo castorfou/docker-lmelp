@@ -15,13 +15,13 @@ import pytest
 # A version tag such as "8", "8.3" or "8.3.1" -- never "latest" (issue #74).
 PINNED_MONGO_TAG = re.compile(r"^\d+(\.\d+){0,2}$")
 
-# Some mongod releases (8.0.21+, 8.3 up to 8.3.13 at least, 9.0) refuse to start
-# when `uname -r` reports a kernel from 6.19 to 7.0.13, which includes every
-# Ubuntu 7.0 kernel (`7.0.0-NN`): GitHub runners, Ubuntu laptops
-# (SERVER-136848). For each affected series, the first release verified to
-# start on an Ubuntu 7.0 kernel (7.0.0-43-generic, 2026-11-16). A series tag
-# (`8`, `8.3`) follows the latest patch and is safe; a patch release below
-# these bounds is refused.
+# Some mongod releases (8.0.21+, early 8.3 such as 8.3.13, early 9.0) refuse to
+# start when `uname -r` reports a kernel from 6.19 to 7.0.13, which includes
+# every Ubuntu 7.0 kernel (`7.0.0-NN`): GitHub runners, Ubuntu laptops
+# (SERVER-136848). For each affected series, a release verified to start on an
+# Ubuntu 7.0 kernel (7.0.0-43-generic, 2026-11-16). These are conservative
+# bounds, not the first fixed releases: a patch release below them is refused
+# even if it might start. A series tag (`8`, `8.3`) follows the latest patch.
 KERNEL_FIXED_MONGO_RELEASES: dict[tuple[int, ...], tuple[int, ...]] = {
     (8, 0): (8, 0, 38),
     (8, 3): (8, 3, 17),
@@ -229,7 +229,7 @@ class TestMongoBaseImagePinned:
             ("9.0.0", False),
         ],
     )
-    def test_kernel_blocked_releases_are_refused(self, tag, starts):
+    def test_kernel_check_classifies_tags(self, tag: str, starts: bool) -> None:
         """8.3.13 was measured exiting on an Ubuntu 7.0 kernel (PR #80);
         8.3.17 was measured starting there (issue #88)."""
         assert _starts_on_ubuntu_7_kernels(tag) is starts

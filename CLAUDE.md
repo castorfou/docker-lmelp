@@ -150,12 +150,14 @@ la correction de SERVER-136848, puis est revenue à `mongo:8` (issue #88) : 8.0.
 
 **Règles** :
 - Le `FROM` reste un tag de série (`mongo:8`), qui suit les correctifs. Un patch épinglé
-  doit être au moins la première version vérifiée de sa série
+  doit être au moins la version vérifiée de sa série (borne prudente, pas forcément la
+  première corrigée)
   (`KERNEL_FIXED_MONGO_RELEASES` dans `tests/test_mongodb_image.py`, contrôlé par
   `test_base_image_starts_on_ubuntu_7_kernels`).
 - Changer de série n'est sûr qu'avec une FCV acceptée par le nouveau binaire : un binaire
   8.3 ouvre une FCV 8.2, un binaire 8.2 n'ouvre pas une FCV 8.3. Relever binaire **et**
-  FCV avant tout changement de série.
+  FCV avant tout changement de série. `mongo:8` change de série tout seul (8.3, puis les
+  suivantes) : relever les deux après chaque saut.
 - Un échec soudain des tests d'image mongo en CI, sans changement côté mongo, vient
   d'abord du runner (noyau) ou du tag de base qui a bougé : lire la sortie de `mongod`.
 

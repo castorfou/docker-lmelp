@@ -30,14 +30,19 @@ laisse le conteneur en redémarrage permanent (code de sortie 62). Un changement
 se fait donc en modifiant ce `FROM`, selon la procédure de
 [montée de version](../user/mongodb-upgrade.md).
 
-**Noyaux Linux 6.19 à 7.0.13** : certaines versions de `mongod` (8.0.21 et suivantes, 8.3
-jusqu'à 8.3.13 au moins, premières 9.0) s'arrêtent au démarrage sur un noyau affiché de
+**Noyaux Linux 6.19 à 7.0.13** : certaines versions de `mongod` (8.0.21 et suivantes,
+premières 8.3 comme 8.3.13, premières 9.0) s'arrêtent au démarrage sur un noyau affiché de
 6.19 à 7.0.13, ce qui inclut tous les noyaux Ubuntu 7.0 (`7.0.0-NN`) : runners GitHub
 Actions, postes Ubuntu
-([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)). Les versions actuelles
-de chaque série démarrent ; un tag de série les suit. `KERNEL_FIXED_MONGO_RELEASES`, dans
-`tests/test_mongodb_image.py`, donne pour chaque série concernée la première version
-vérifiée sur un noyau Ubuntu 7.0.
+([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)). Les versions corrigées
+démarrent, et un tag de série suit le dernier correctif. `KERNEL_FIXED_MONGO_RELEASES`,
+dans `tests/test_mongodb_image.py`, donne pour chaque série concernée une version vérifiée
+sur un noyau Ubuntu 7.0 : une borne prudente, pas forcément la première version corrigée.
+
+**Tag de majeure** : `mongo:8` suit aussi les nouvelles séries de la majeure 8 (8.3, puis
+les suivantes). Un binaire 8.3 ouvre la FCV 8.2 des données en place. Après un changement
+de série dans l'image, relever le binaire et la FCV (voir
+[montée de version](../user/mongodb-upgrade.md#relever-les-deux-versions)).
 
 `tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse tout tag non numérique,
 dans le Dockerfile comme pour les images `mongo` officielles des fichiers compose, ainsi

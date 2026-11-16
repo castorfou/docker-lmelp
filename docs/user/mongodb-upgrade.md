@@ -6,7 +6,7 @@ chaque reconstruction de l'image ; un changement de majeure est une opération m
 décrite sur cette page.
 
 !!! note "Noyaux Linux 6.19 à 7.0.13"
-    Certaines versions de `mongod` (8.0.21 et suivantes, 8.3 jusqu'à 8.3.13 au moins,
+    Certaines versions de `mongod` (8.0.21 et suivantes, premières 8.3 comme 8.3.13,
     premières 9.0) refusent de démarrer quand `uname -r` indique un noyau Linux de 6.19 à
     7.0.13 :
 
@@ -16,10 +16,10 @@ décrite sur cette page.
     ```
 
     Tous les noyaux Ubuntu 7.0 sont concernés : leur version s'affiche `7.0.0-NN`. C'est le
-    cas des runners GitHub Actions et des postes Ubuntu récents. Les versions actuelles de
-    chaque série (8.0.38, 8.3.17, 9.0.8 et suivantes) démarrent sur ces noyaux
-    ([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)) : un tag de série
-    (`mongo:8`, `mongo:8.3`) les suit automatiquement.
+    cas des runners GitHub Actions et des postes Ubuntu récents. Les versions corrigées
+    ([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)) démarrent sur ces
+    noyaux, et un tag de série (`mongo:8`, `mongo:8.3`) suit automatiquement le dernier
+    correctif.
     `tests/test_mongodb_image.py::TestMongoBaseImagePinned` refuse un `FROM` épinglé sur
     une version de correctif plus ancienne.
 
@@ -153,7 +153,8 @@ Les données ne sont pas endommagées. Pour revenir à un état fonctionnel :
 ### Poste local avec `docker-compose.mongo7.yml`
 
 Le fichier `docker-compose.mongo7.yml` remplace l'image par `mongo:7.0` pour les postes
-dont le noyau Linux (6.19 à 7.0.13) empêche une version de MongoDB 8.x de démarrer. Il exige un répertoire
+dont le noyau Linux (6.19 à 7.0.13) empêche une version de MongoDB 8.x de démarrer.
+Il exige un répertoire
 de données en FCV 7.0 : une copie du volume d'une instance 8.x ne s'y ouvre pas. Pour
 reprendre ces données, partir d'un répertoire `MONGO_DATA_PATH` vide et
 [restaurer un backup](backup-restore.md#restauration-depuis-un-backup). MongoDB ne
