@@ -23,6 +23,8 @@ flowchart TD
 
 La dernière ligne alimente Calibre-Web-Automated (CWA) seulement : ni le back-office ni l'app mobile ne lisent la bibliothèque CWA.
 
+Cette chaîne fait partie des flux de toute la stack lmelp, décrits avec leurs déclencheurs sur la page [Écosystème lmelp](https://castorfou.github.io/lmelp-mobile/ecosysteme/) de lmelp-mobile.
+
 ## Les maillons en détail
 
 ### 1 → 2 : Synology Drive

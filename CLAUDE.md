@@ -3,6 +3,29 @@
 ## Description
 proposer une archi complete docker mongo, lmelp, back-office-lmelp avec gestion des sauvegardes auto et restore db. Sous forme de docker compose et installable en stackainer sur NAS ou sur PC perso
 
+## Écosystème lmelp : schéma à tenir à jour
+
+La page [Écosystème lmelp](https://castorfou.github.io/lmelp-mobile/ecosysteme/) de
+lmelp-mobile (`docs/ecosysteme.md`) décrit les flux de toute la stack lmelp et leurs
+déclencheurs (schémas « Mise à jour des données » et « Mise à jour du code », tableau des
+déclencheurs). Une partie de ces flux vit dans docker-lmelp.
+
+**Règle** : toute modification d'un flux faite ici doit s'accompagner d'une issue dans
+`castorfou/lmelp-mobile` pour mettre la page à jour, qui décrit le changement et cite la
+PR concernée. Changements concernés :
+
+- service ajouté ou retiré dans `docker-compose.yml` (`mongo`, `backend`, `frontend`,
+  `lmelp-export`…) ;
+- fréquence modifiée : `PUBLISH_INTERVAL` de `lmelp-export`, synchronisation de
+  Calibre-Web-Automated (`scripts/nas/nightly-sync.sh`, tâche DSM à 00:05 heure de
+  Paris), sauvegarde MongoDB (anacron hebdomadaire de l'image `lmelp-mongo`) ;
+- volume ou chemin de la copie Drive de Calibre (`CALIBRE_HOST_PATH`) ;
+- mécanisme de mise à jour des conteneurs : Watchtower (déployé hors de cette stack),
+  label `com.centurylinklabs.watchtower.enable` ajouté ou retiré sur un service.
+
+La même consigne figure dans le `CLAUDE.md` de lmelp-mobile, section « Écosystème lmelp :
+schéma à tenir à jour ».
+
 ## La Stack Technique
 - **Langage**: Python 3.11
 - **Gestionnaire de dépendances**: uv & pyproject.toml
