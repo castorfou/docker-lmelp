@@ -14,12 +14,14 @@ déclencheurs). Une partie de ces flux vit dans docker-lmelp.
 `castorfou/lmelp-mobile` pour mettre la page à jour, qui décrit le changement et cite la
 PR concernée. Changements concernés :
 
-- service ajouté ou retiré dans `docker-compose.yml` (`lmelp-export`, Watchtower,
-  Calibre-Web-Automated, `lmelp-mongo`…) ;
-- fréquence modifiée : `PUBLISH_INTERVAL` de `lmelp-export`, synchronisation CWA
-  (`nightly-sync.sh`, 00:05), sauvegarde MongoDB (hebdomadaire) ;
+- service ajouté ou retiré dans `docker-compose.yml` (`mongo`, `backend`, `frontend`,
+  `lmelp-export`…) ;
+- fréquence modifiée : `PUBLISH_INTERVAL` de `lmelp-export`, synchronisation de
+  Calibre-Web-Automated (`scripts/nas/nightly-sync.sh`, tâche DSM à 00:05 heure de
+  Paris), sauvegarde MongoDB (anacron hebdomadaire de l'image `lmelp-mongo`) ;
 - volume ou chemin de la copie Drive de Calibre (`CALIBRE_HOST_PATH`) ;
-- mécanisme de mise à jour des conteneurs (Watchtower).
+- mécanisme de mise à jour des conteneurs : Watchtower (déployé hors de cette stack),
+  label `com.centurylinklabs.watchtower.enable` ajouté ou retiré sur un service.
 
 La même consigne figure dans le `CLAUDE.md` de lmelp-mobile, section « Écosystème lmelp :
 schéma à tenir à jour ».
