@@ -207,6 +207,18 @@ d'une majeure supérieure. Depuis la 4.0.0, `docker-init.sh` choisit iptables au
 
 Référence : `docs/dev/devcontainer-docker.md`.
 
+**Réseau partagé avec le laptop** (constaté lors de l'issue #94) : le devcontainer tourne
+en `--network=host`. Son dockerd partage donc les ports et la table de routage du laptop :
+un Mongo local sur 27018 bloque `docker compose up mongo`, et les chemins absolus d'un
+`.env` du laptop (`/home/<user>/…`) n'existent pas dans le devcontainer (Docker les crée
+vides, en root). À la création d'un réseau, Docker choisit une plage libre au vu des
+routes existantes : pas de conflit en temps normal. Cas rare : un réseau compose resté
+d'une session précédente garde sa plage, même si le Docker du laptop l'a prise entre-temps.
+Symptôme : conteneur `healthy`, joignable depuis un conteneur voisin, mais
+`curl localhost:<port>` finit en *Connection reset by peer*. `ip route get <IP du
+conteneur>` sort alors sur un autre bridge que `br-<id du réseau compose>` ;
+`docker compose down` puis `up` recrée le réseau sur une plage libre.
+
 ### `lmelp-export` publie en boucle : la donnée Calibre arrive au plus un intervalle plus tard
 
 **Piège découvert lors de l'issue #68 / lmelp-mobile#135** : l'app mobile avait

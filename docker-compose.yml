@@ -209,6 +209,35 @@ services:
     networks:
       - lmelp-network
 
+  # Appli pap (castorfou/lmelp-pap) — healthcheck GET /health défini dans l'image.
+  pap:
+    image: ghcr.io/castorfou/lmelp-pap:latest
+    container_name: lmelp-pap
+    restart: unless-stopped
+    ports:
+      - "${PAP_PORT:-8090}:8090"
+    # Mongo pas encore utilisé par l'image (accès prévu par lmelp-pap#65).
+    depends_on:
+      - mongo
+    volumes:
+      # Toutes les données de pap : cache/, processed/, audios/, logs/.
+      # L'entrypoint chowne /data récursivement (PUID/PGID) : ce dossier hôte
+      # n'est monté que dans pap et n'est imbriqué dans aucun autre volume
+      # (règle de l'issue #51, CLAUDE.md).
+      - ${PAP_PATH_HOTE:-./data/pap}:/data
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - lmelp-network
+
 
 networks:
   lmelp-network:

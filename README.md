@@ -55,6 +55,7 @@ docker compose ps
 
 - **LMELP** (frontend web, installable en PWA) : http://localhost:8080
 - **API Backend** : http://localhost:8000
+- **Appli pap** : http://localhost:8090
 - **MongoDB** : localhost:27018
 
 ## 📦 Services inclus
@@ -65,6 +66,7 @@ docker compose ps
 | **backoffice-backend** | ghcr.io/castorfou/lmelp-backend:latest | 8000 | API Backend |
 | **backoffice-frontend** | ghcr.io/castorfou/lmelp-frontend:latest | 8080 | Interface web lmelp (PWA) |
 | **lmelp-export** (optionnel) | ghcr.io/castorfou/lmelp-mobile-export:latest | - | Publication horaire de la base mobile (GitHub Release, notifications ntfy), export Android via ADB |
+| **pap** | ghcr.io/castorfou/lmelp-pap:latest | 8090 | Appli pap (castorfou/lmelp-pap) |
 | **pgx-keys-watchdog** (optionnel) | alpine:latest | - | Réapplique les permissions des clés SSH PGX (backend et clé historique) |
 
 ## 📚 Documentation complète
@@ -132,6 +134,7 @@ docker-lmelp/
 │   ├── mongodb-logs/       # Logs MongoDB (mongod, backup, rotation)
 │   ├── logs/lmelp-export/  # Log de la boucle de publication de lmelp-export
 │   ├── logs/lmelp-export-state/ # État ok/échec de la publication (notifications ntfy)
+│   ├── pap/                # Données de l'appli pap (cache, processed, audios, logs)
 │   ├── pgx-keys/           # Clé SSH PGX historique (optionnel)
 │   └── pgx-keys-backend/   # Clé SSH dédiée à la transcription PGX (backend, optionnel)
 └── docs/                   # Documentation MkDocs

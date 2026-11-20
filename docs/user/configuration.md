@@ -309,6 +309,27 @@ Le backend stocke les fichiers audio téléchargés dans le volume `AUDIO_PATH` 
 FRONTEND_PORT=8080
 ```
 
+## Variables de l'appli pap
+
+Le service `pap` exécute l'image `ghcr.io/castorfou/lmelp-pap` (usage détaillé :
+[L'appli pap en conteneur et sur le NAS](https://castorfou.github.io/lmelp-pap/user/appli-docker-nas/)).
+
+```bash
+# Port exposé sur l'hôte (l'appli écoute sur 8090 dans le conteneur)
+PAP_PORT=8090
+
+# Dossier des données de pap, monté sur /data du conteneur
+PAP_PATH_HOTE=./data/pap
+```
+
+`PAP_PATH_HOTE` contient tout ce qu'écrit l'appli : `cache/` (cache des sources),
+`processed/` (CSV de la liste et arbitrages), `audios/` (enregistrements rapatriés) et
+`logs/`. Le conteneur tourne sous `PUID`/`PGID`, les mêmes que le backend, et reprend la
+propriété de tout ce dossier à chaque démarrage : ne pas l'imbriquer dans le volume d'un
+autre service, ni y placer un autre volume. Les variables internes de l'image
+(`PAP_HOTE=0.0.0.0`, `PAP_PORT=8090`, `PAP_CACHE=/data/cache`,
+`PAP_DONNEES=/data/processed`) gardent leurs valeurs par défaut.
+
 ## Chemins des volumes
 
 Ces variables définissent où les données sont stockées sur l'hôte.
@@ -331,6 +352,9 @@ MONGO_LOG_PATH=./data/mongodb-logs
 
 # Cache Babelio (persisté entre redéploiements)
 BABELIO_CACHE_PATH=./data/cache/babelio
+
+# Données de l'appli pap (cache, processed, audios, logs)
+PAP_PATH_HOTE=./data/pap
 
 # Clé SSH PGX historique (ancienne application Streamlit, surveillée par le watchdog)
 PGX_KEYS_PATH=./data/pgx-keys
@@ -372,12 +396,13 @@ BABELIO_CACHE_PATH=/mnt/storage/lmelp/cache/babelio
 PGX_KEYS_PATH=/mnt/storage/lmelp/pgx-keys
 PGX_BACKEND_KEYS_PATH=/mnt/storage/lmelp/pgx-keys-backend
 LMELP_EXPORT_LOG_PATH=/mnt/storage/lmelp/logs/lmelp-export
+PAP_PATH_HOTE=/mnt/storage/lmelp/pap
 ```
 
 **Important** : Créer les répertoires avant de démarrer la stack :
 
 ```bash
-mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys,pgx-keys-backend}
+mkdir -p /mnt/storage/lmelp/{mongodb,backups,audios,logs/lmelp-export,mongodb-logs,cache/babelio,pgx-keys,pgx-keys-backend,pap}
 chmod -R 755 /mnt/storage/lmelp
 ```
 

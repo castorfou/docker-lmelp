@@ -32,6 +32,24 @@ créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
 - `/docker/{mongodb,backups,audios,logs/lmelp-export,logs/lmelp-export-state,mongodb-logs,cache/babelio,pgx-keys-backend}`
 ```
 
+!!! info "`pap` : données de l'appli pap (castorfou/lmelp-pap)"
+    Créer aussi `/docker/lmelp/pap/{cache,processed,audios,logs}`. Ce dossier est monté
+    tel quel sur `/data` du conteneur `pap` (`PAP_PATH_HOTE`) et n'est monté dans aucun
+    autre service :
+
+    - `cache/` : cache des sources ;
+    - `processed/` : CSV de la liste et arbitrages ;
+    - `audios/` : enregistrements rapatriés, de « rapatrié » à « valide ». Le dossier
+      `/docker/lmelp/audios` du back-office reste réservé aux intégraux valides ;
+    - `logs/` : logs de l'appli.
+
+    Amorçage depuis un clone de lmelp-pap, avant le premier démarrage de `pap` :
+    uploader via **File Station** le contenu de `data/raw/cache/` dans
+    `/docker/lmelp/pap/cache` et celui de `data/processed/` dans
+    `/docker/lmelp/pap/processed`. Au démarrage, le conteneur reprend la propriété de
+    tout `pap/` en `PUID:PGID` (`1027:1027` avec `.env.nas.example`). Usage détaillé de
+    l'image : [L'appli pap en conteneur et sur le NAS](https://castorfou.github.io/lmelp-pap/user/appli-docker-nas/).
+
 !!! info "`pgx-keys-backend` (optionnel, transcription PGX)"
     Répertoire destiné à la clé SSH dédiée à la transcription automatisée via PGX,
     pilotée depuis le back-office (page `/transcription-pgx`, générée et persistée
@@ -246,11 +264,32 @@ L'application s'installe comme PWA depuis cette URL. Une PWA installée depuis u
 URL reste liée à celle-ci : la désinstaller, puis la réinstaller depuis
 `https://lmelp.ascot63.synology.me`.
 
+**pap**
+
+- Reverse Proxy Name: pap
+- Source
+    - Protocol: HTTPS
+    - Hostname: pap.lmelp.ascot63.synology.me
+    - Port: 443
+    - Enable HSTS
+    - Access control profile: reseau local
+- Destination
+    - Protocol: HTTP
+    - Hostname: localhost
+    - Port: 8090
+
+Le port de destination est celui de l'appli pap (`PAP_PORT`, `8090` dans
+`.env.nas.example`).
+
 
 ## Étape 9 — Valider le déploiement
 
 - [:white_check_mark:] Tous les containers sont `healthy` (`docker compose ps` ou Portainer)
 - [:white_check_mark:] L'application LMELP est accessible et affiche les données migrées
+- [ ] Le conteneur `pap` est `healthy` et l'appli répond sur
+  `https://pap.lmelp.ascot63.synology.me` depuis le réseau local ; les fichiers de
+  `/docker/lmelp/pap` appartiennent à `1027:1027` (en SSH :
+  `ls -ln /volume1/docker/lmelp/pap`)
 - [:white_check_mark:] `docker exec lmelp-mongo mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"` renvoie un nombre cohérent avec l'ancienne installation (fais en root depuis le container lmelp-mongo : `mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"`)
 - [:white_check_mark:] Un backup manuel fonctionne (`FORCE_BACKUP=1 /scripts/backup_mongodb.sh`, voir [Backups & Restauration](backup-restore.md))
 - [:white_check_mark:] La bibliothèque Calibre est visible depuis le back-office (lecture seule)

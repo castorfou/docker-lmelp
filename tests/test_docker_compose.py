@@ -845,3 +845,144 @@ class TestCalibreHostPathUsesDriveCopy:
         delay = text.split("## Délai entre Calibre et l'app", 1)[1].split("\n## ", 1)[0]
         assert "Synology Drive" in delay
         assert "nightly-sync.sh" not in delay
+
+
+class TestPapService:
+    """Service pap: the lmelp-pap web app (issue #94, lmelp-pap#58 and #64).
+
+    The image serves the app on 8090 and keeps all its data under /data
+    (cache/, processed/, audios/, logs/). Its entrypoint runs as root, remaps
+    appuser to PUID/PGID and chowns /data recursively, as the backend does.
+    """
+
+    PAP_VOLUME = "${PAP_PATH_HOTE:-./data/pap}:/data"
+    NAS_PAP_PATH = "/volume1/docker/lmelp/pap"
+
+    @staticmethod
+    def _services() -> dict[str, Any]:
+        with open("docker-compose.yml") as f:
+            config: dict[str, Any] = yaml.safe_load(f)
+        services: dict[str, Any] = config["services"]
+        return services
+
+    def _pap(self) -> dict[str, Any]:
+        services = self._services()
+        assert "pap" in services, "pap service should be defined"
+        pap: dict[str, Any] = services["pap"]
+        return pap
+
+    @staticmethod
+    def _env_value(path: str, key: str) -> str:
+        with open(path) as f:
+            for raw in f:
+                if raw.startswith(f"{key}="):
+                    return raw.split("=", 1)[1].strip()
+        raise AssertionError(f"{path} should set {key}")
+
+    def test_pap_uses_lmelp_pap_image(self):
+        pap = self._pap()
+        assert pap["image"] == "ghcr.io/castorfou/lmelp-pap:latest"
+        assert pap["container_name"] == "lmelp-pap"
+        assert pap["restart"] == "unless-stopped"
+
+    def test_pap_is_updated_by_watchtower(self):
+        assert "com.centurylinklabs.watchtower.enable=true" in self._pap()["labels"]
+
+    def test_pap_on_stack_network_and_depends_on_mongo(self):
+        pap = self._pap()
+        assert pap["networks"] == ["lmelp-network"]
+        assert "mongo" in pap["depends_on"]
+
+    def test_pap_mounts_a_single_data_volume(self):
+        assert self._pap()["volumes"] == [self.PAP_VOLUME]
+
+    def test_pap_data_volume_mounted_only_in_pap(self):
+        for name, service in self._services().items():
+            if name == "pap":
+                continue
+            for volume in service.get("volumes", []):
+                assert "PAP_PATH_HOTE" not in volume and "data/pap" not in volume, (
+                    f"{name} must not mount the pap data volume ({volume!r})"
+                )
+
+    def test_pap_publishes_its_port(self):
+        assert self._pap()["ports"] == ["${PAP_PORT:-8090}:8090"]
+
+    def test_pap_receives_puid_pgid_like_backend(self):
+        pap_env = self._pap()["environment"]
+        backend_env = self._services()["backend"]["environment"]
+        for entry in ("PUID=${PUID:-1000}", "PGID=${PGID:-1000}"):
+            assert entry in pap_env
+            assert entry in backend_env
+
+    def test_pap_keeps_image_healthcheck(self):
+        """The image declares HEALTHCHECK on GET /health: not overridden here."""
+        assert "healthcheck" not in self._pap()
+
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    @pytest.mark.parametrize("var", ["PAP_PORT", "PAP_PATH_HOTE"])
+    def test_env_examples_document_pap_variables(self, env_file, var):
+        assert re.search(rf"^{var}=", Path(env_file).read_text(), re.M), (
+            f"{env_file} should set {var}"
+        )
+
+    def test_env_example_defaults_match_compose(self):
+        assert self._env_value(".env.example", "PAP_PATH_HOTE") == "./data/pap"
+        assert self._env_value(".env.example", "PAP_PORT") == "8090"
+        assert self._env_value(".env.nas.example", "PAP_PORT") == "8090"
+
+    def test_nas_env_example_uses_absolute_pap_path(self):
+        assert self._env_value(".env.nas.example", "PAP_PATH_HOTE") == self.NAS_PAP_PATH
+
+    def test_nas_pap_path_not_nested_with_other_volumes(self):
+        """pap chowns /data recursively: its host path must not contain, or sit
+        inside, another service's volume (issue #51 rule, CLAUDE.md)."""
+        text = Path(".env.nas.example").read_text()
+        paths = dict(re.findall(r"^([A-Z_]*PATH[A-Z_]*)=(/\S+)$", text, re.M))
+        pap = paths.pop("PAP_PATH_HOTE").rstrip("/")
+        for var, path in paths.items():
+            path = path.rstrip("/")
+            assert not path.startswith(pap + "/") and not pap.startswith(path + "/"), (
+                f"PAP_PATH_HOTE ({pap!r}) nested with {var} ({path!r})"
+            )
+
+    def test_default_pap_path_not_nested_with_other_volumes(self):
+        content = Path("docker-compose.yml").read_text()
+        defaults = dict(re.findall(r"\$\{([A-Z_]*PATH[A-Z_]*):-(\./[^}]+)\}", content))
+        pap = defaults.pop("PAP_PATH_HOTE").rstrip("/")
+        for var, path in defaults.items():
+            path = path.rstrip("/")
+            assert not path.startswith(pap + "/") and not pap.startswith(path + "/"), (
+                f"PAP_PATH_HOTE default ({pap!r}) nested with {var} ({path!r})"
+            )
+
+    def test_pap_data_dir_kept_in_git(self):
+        assert Path("data/pap/.gitkeep").exists()
+
+
+class TestPapNasDocumentation:
+    """docs/user/migration-nas.md covers what pap needs on the NAS (issue #94)."""
+
+    DOC = "docs/user/migration-nas.md"
+
+    @staticmethod
+    def _section(text: str, title: str) -> str:
+        return text.split(f"## {title}", 1)[1].split("\n## ", 1)[0]
+
+    def test_step1_creates_pap_tree_and_seeds_it(self):
+        step = self._section(Path(self.DOC).read_text(), "Étape 1")
+        assert "pap/{cache,processed,audios,logs}" in step
+        assert "data/raw/cache/" in step
+        assert "data/processed/" in step
+
+    def test_step8_reverse_proxy_entry_for_pap(self):
+        step = self._section(Path(self.DOC).read_text(), "Étape 8")
+        pap = step.split("**pap**", 1)[1]
+        assert "pap.lmelp.ascot63.synology.me" in pap
+        assert "Port: 8090" in pap
+        assert "Enable HSTS" in pap
+
+    def test_step9_validates_pap_health_and_ownership(self):
+        step = self._section(Path(self.DOC).read_text(), "Étape 9")
+        assert "`pap`" in step
+        assert "1027:1027" in step

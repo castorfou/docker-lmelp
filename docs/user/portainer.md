@@ -76,7 +76,7 @@ Portainer va :
 
 Aller dans **Stacks** → **lmelp-stack** pour voir :
 
-- Liste des services (`lmelp-mongo`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`, `lmelp-export`, `lmelp-pgx-keys-watchdog`)
+- Liste des services (`lmelp-mongo`, `lmelp-backoffice-frontend`, `lmelp-backoffice-backend`, `lmelp-export`, `lmelp-pap`, `lmelp-pgx-keys-watchdog`)
 - État de chaque container (vert = healthy)
 - Logs en temps réel
 
@@ -84,6 +84,7 @@ En naviguant sur chaque container :
 
 - lmelp (frontend web) : http://localhost:8080/
 - API backend : http://localhost:8000/health
+- appli pap : http://localhost:8090/
 
 
 ## Gestion de la stack dans Portainer
@@ -96,6 +97,7 @@ En naviguant sur chaque container :
 - **lmelp-backoffice-frontend** : ⬤ healthy
 - **lmelp-export** : ⬤ healthy
 - **lmelp-mongo** : ⬤ healthy
+- **lmelp-pap** : ⬤ healthy
 - **lmelp-pgx-keys-watchdog** : ⬤ running (pas de healthcheck)
 
 ### Consulter les logs
