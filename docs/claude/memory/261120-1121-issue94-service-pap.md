@@ -63,14 +63,28 @@ port 27018 était pris par le Mongo local de l'utilisateur) : `pap` passe `healt
 
 Depuis le devcontainer en revanche, `curl localhost:8090` donne *Connection reset by
 peer*. Cause : le devcontainer tourne en `--network=host`
-(`.devcontainer/devcontainer.json:8`), donc le dockerd du devcontainer partage l'espace
-réseau du laptop. Il a attribué `172.18.0.0/16` à `lmelp-network`, sous-réseau déjà pris
-par un bridge (éteint) du Docker du laptop : `ip route get 172.18.0.2` part vers ce
-bridge et docker-proxy coupe la connexion. Un conteneur sur le bridge par défaut
-(172.17) se joint normalement. Rien de propre à `pap` ni au NAS.
+(`.devcontainer/devcontainer.json:8`), donc le dockerd du devcontainer partage la table
+de routage du laptop. Le `lmelp-network` présent (`16065251b942`, `172.18.0.0/16`)
+existait avant le test, très probablement depuis une session antérieure ; un bridge du
+Docker du laptop (`br-203e2f5ea028`, éteint) occupait entre-temps la même plage, et
+`ip route get 172.18.0.2` partait vers lui : docker-proxy coupait la connexion.
+
+Contre-épreuve (sur remarque de l'utilisateur, qui n'avait jamais vu le problème en
+docker-in-docker dans back-office-lmelp) : après `docker compose down`, le réseau recréé
+reçoit `172.22.0.0/16`, plage libre (Docker évite les routes existantes à la création),
+et `curl localhost:8090/health` renvoie 200. Le conflit n'arrive donc qu'avec un réseau
+ancien dont la plage a été reprise par l'autre Docker ; ce n'est pas un piège général.
+L'origine exacte du réseau ancien n'a pas pu être vérifiée (supprimé par le `down`).
 
 Diagnostic : `ip route get <IP du conteneur>` doit sortir sur le bridge du réseau compose
-(`br-<id du réseau>`) ; sinon, conflit de sous-réseau avec le Docker de l'hôte.
+(`br-<id du réseau>`) ; sinon, recréer le réseau (`docker compose down` puis `up`).
+
+Autre écart vu au même test : `mongo` `unhealthy`, car le `.env` local de l'utilisateur
+donne des chemins absolus du laptop (`/home/guillaume/git/docker-lmelp/…`) absents du
+devcontainer ; Docker les a créés vides en root et `mongod` n'a pas pu ouvrir son log.
+Ces dossiers ont été supprimés ensuite. Attention : le comptage préalable
+`find … -type f | wc -l` lancé en `vscode` affichait 0 faute de droits, alors que 16
+fichiers (tous issus du test) y étaient : compter avec les mêmes droits que la suppression.
 
 Après le test, `data/pap/` (chowné en 1027 par l'entrypoint) a été remis en 1000:1000 et
 vidé via un conteneur alpine, pour ne pas laisser au dépôt des fichiers non modifiables
