@@ -929,7 +929,8 @@ class TestPapService:
     def test_env_example_defaults_match_compose(self):
         assert self._env_value(".env.example", "PAP_PATH_HOTE") == "./data/pap"
         assert self._env_value(".env.example", "PAP_PORT") == "8090"
-        assert self._env_value(".env.nas.example", "PAP_PORT") == "8090"
+        # 8090 is already taken on the NAS: 8085 is published there instead.
+        assert self._env_value(".env.nas.example", "PAP_PORT") == "8085"
 
     def test_nas_env_example_uses_absolute_pap_path(self):
         assert self._env_value(".env.nas.example", "PAP_PATH_HOTE") == self.NAS_PAP_PATH
@@ -979,7 +980,9 @@ class TestPapNasDocumentation:
         step = self._section(Path(self.DOC).read_text(), "Étape 8")
         pap = step.split("**pap**", 1)[1]
         assert "pap.lmelp.ascot63.synology.me" in pap
-        assert "Port: 8090" in pap
+        nas_port = TestPapService._env_value(".env.nas.example", "PAP_PORT")
+        assert f"Port: {nas_port}" in pap
+        assert f"`{nas_port}` dans\n`.env.nas.example`" in pap
         assert "Enable HSTS" in pap
 
     def test_step9_validates_pap_health_and_ownership(self):

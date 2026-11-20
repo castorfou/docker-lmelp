@@ -276,10 +276,11 @@ URL reste liée à celle-ci : la désinstaller, puis la réinstaller depuis
 - Destination
     - Protocol: HTTP
     - Hostname: localhost
-    - Port: 8090
+    - Port: 8085
 
-Le port de destination est celui de l'appli pap (`PAP_PORT`, `8090` dans
-`.env.nas.example`).
+Le port de destination est celui de l'appli pap (`PAP_PORT`, `8085` dans
+`.env.nas.example`). Dans le conteneur, l'appli écoute toujours sur 8090 ; le port
+8090 du NAS est déjà occupé par un autre service.
 
 
 ## Étape 9 — Valider le déploiement
