@@ -134,6 +134,7 @@ docker compose ps
 # lmelp-backoffice-backend    Up (healthy)
 # lmelp-backoffice-frontend   Up (healthy)
 # lmelp-export                Up (healthy)
+# lmelp-pap                   Up (healthy)
 # lmelp-pgx-keys-watchdog     Up
 ```
 
@@ -143,6 +144,7 @@ Les services devraient afficher **"Up (healthy)"** une fois complètement opéra
 - **Backend API** : Endpoint `/health`
 - **Frontend** : Endpoint `/health` du serveur web nginx
 - **lmelp-export** : `ping` MongoDB via pymongo
+- **pap** : endpoint `/health` (healthcheck défini dans l'image)
 
 **Temps de démarrage** : Attendez 30-60 secondes après `docker compose up` pour que tous les services passent à l'état "healthy".
 
