@@ -95,3 +95,15 @@ par `vscode`.
 - Issue `castorfou/lmelp-mobile` à ouvrir pour la page Écosystème (service ajouté).
 - Mise à jour de la stack NAS après le merge sur `main` (« Update the stack », vérifier
   `Created` de `lmelp-pap`).
+
+## Port NAS : 8085 au lieu de 8090
+
+Premier « Update the stack » sur le NAS : `listen tcp4 0.0.0.0:8090: bind: address
+already in use`. Le port 8090 du NAS était déjà pris (service non identifié, pas d'accès
+SSH au NAS). Décision de l'utilisateur : publier `pap` sur **8085** côté NAS
+(`PAP_PORT=8085` dans `.env.nas.example`, destination du reverse proxy DSM à 8085) ;
+l'appli écoute toujours sur 8090 dans le conteneur et le défaut local reste 8090. Le test
+`TestPapNasDocumentation::test_step8_reverse_proxy_entry_for_pap` lit désormais le port
+dans `.env.nas.example` au lieu de le figer. Sans SSH, vérifier un port libre via la
+colonne **Published Ports** de la liste **Containers** de Portainer (ne voit pas les
+paquets DSM hors Docker).
