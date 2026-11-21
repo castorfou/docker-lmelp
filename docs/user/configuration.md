@@ -343,6 +343,21 @@ maturité : pas de badge ni de filtre, et `POST /api/verifications` répond 503
 `MONGO_URI absent`. `GET /api/donnees` indique `maturite_active` quand l'accès à Mongo
 est en place.
 
+pap lit aussi l'API Radio France (GraphQL, en-tête `X-Token`) avec une clé à renseigner
+dans `.env` :
+
+```bash
+# Clé du compte développeur https://developers.radiofrance.fr/ (1 000 requêtes par jour)
+RADIOFRANCE_API_TOKEN=
+```
+
+Avec la clé, le panneau d'écoute affiche le présentateur, les critiques et les invités de
+la diffusion, et la description d'un enregistrement mis à disposition de lmelp est
+composée à partir de ces données. Sans clé, pap fonctionne sans elles. Les conditions
+d'utilisation de l'API interdisent de conserver ses réponses : pap ne les écrit nulle
+part. La clé est un secret : elle reste dans `.env` (ou les variables de la stack
+Portainer), jamais dans un fichier commité.
+
 Ces variables font partie de la configuration du conteneur : Watchtower ne les applique
 pas. Après une mise à jour du compose, redéployer le service (`docker compose up -d pap`,
 ou « Update the stack » dans Portainer).

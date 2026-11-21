@@ -941,6 +941,34 @@ class TestPapService:
         assert "MONGO_DB" in section
         assert "pap_" in section
 
+    RADIOFRANCE_ENTRY = "RADIOFRANCE_API_TOKEN=${RADIOFRANCE_API_TOKEN:-}"
+
+    def test_pap_receives_radiofrance_api_token(self):
+        """pap reads the Radio France API (X-Token header) for the people of a
+        broadcast and the description of a recording (issue #100)."""
+        assert self.RADIOFRANCE_ENTRY in self._pap()["environment"]
+
+    def test_radiofrance_api_token_passed_to_pap_only(self):
+        for name, service in self._services().items():
+            if name == "pap":
+                continue
+            env = service.get("environment", [])
+            assert not any("RADIOFRANCE_API_TOKEN" in entry for entry in env), (
+                f"{name} must not receive RADIOFRANCE_API_TOKEN"
+            )
+
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    def test_env_examples_declare_empty_radiofrance_api_token(self, env_file):
+        """The key is a secret: the examples declare it empty, never a value."""
+        assert self._env_value(env_file, "RADIOFRANCE_API_TOKEN") == ""
+        assert "developers.radiofrance.fr" in Path(env_file).read_text()
+
+    def test_configuration_doc_documents_radiofrance_api_token(self):
+        doc = Path("docs/user/configuration.md").read_text()
+        section = doc.split("## Variables de l'appli pap", 1)[1].split("\n## ", 1)[0]
+        assert "RADIOFRANCE_API_TOKEN" in section
+        assert "developers.radiofrance.fr" in section
+
     def test_pap_keeps_image_healthcheck(self):
         """The image declares HEALTHCHECK on GET /health: not overridden here."""
         assert "healthcheck" not in self._pap()
