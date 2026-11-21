@@ -330,6 +330,23 @@ autre service, ni y placer un autre volume. Les variables internes de l'image
 (`PAP_HOTE=0.0.0.0`, `PAP_PORT=8090`, `PAP_CACHE=/data/cache`,
 `PAP_DONNEES=/data/processed`) gardent leurs valeurs par défaut.
 
+Le compose fixe aussi l'accès de pap à MongoDB, sans variable à renseigner dans `.env` :
+
+| Variable du conteneur | Valeur | Rôle |
+| --- | --- | --- |
+| `MONGO_URI` | `mongodb://mongo:27017` | Service `mongo` de la stack |
+| `MONGO_DB` | `${MONGO_DATABASE:-masque_et_la_plume}` | Même base que le back-office |
+
+L'appli y range son travail dans les collections `pap_*` (maturité des enregistrements,
+vérification des URL des intégraux). Sans `MONGO_URI`, elle démarre quand même mais sans
+maturité : pas de badge ni de filtre, et `POST /api/verifications` répond 503
+`MONGO_URI absent`. `GET /api/donnees` indique `maturite_active` quand l'accès à Mongo
+est en place.
+
+Ces variables font partie de la configuration du conteneur : Watchtower ne les applique
+pas. Après une mise à jour du compose, redéployer le service (`docker compose up -d pap`,
+ou « Update the stack » dans Portainer).
+
 ## Chemins des volumes
 
 Ces variables définissent où les données sont stockées sur l'hôte.
