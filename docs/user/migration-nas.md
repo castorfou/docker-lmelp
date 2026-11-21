@@ -291,6 +291,10 @@ Le port de destination est celui de l'appli pap (`PAP_PORT`, `8085` dans
   `https://pap.lmelp.ascot63.synology.me` depuis le réseau local ; les fichiers de
   `/docker/lmelp/pap` appartiennent à `1027:1027` (en SSH :
   `ls -ln /volume1/docker/lmelp/pap`)
+- [ ] La maturité des enregistrements de pap est active :
+  `curl http://<IP du NAS>:8085/api/donnees` contient `maturite_active`, et le bouton
+  « Vérifier les URL des intégraux » de `/liste` aboutit (voir
+  [Variables de l'appli pap](configuration.md#variables-de-lappli-pap))
 - [:white_check_mark:] `docker exec lmelp-mongo mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"` renvoie un nombre cohérent avec l'ancienne installation (fais en root depuis le container lmelp-mongo : `mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"`)
 - [:white_check_mark:] Un backup manuel fonctionne (`FORCE_BACKUP=1 /scripts/backup_mongodb.sh`, voir [Backups & Restauration](backup-restore.md))
 - [:white_check_mark:] La bibliothèque Calibre est visible depuis le back-office (lecture seule)

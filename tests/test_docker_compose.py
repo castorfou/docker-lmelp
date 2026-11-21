@@ -915,6 +915,32 @@ class TestPapService:
             assert entry in pap_env
             assert entry in backend_env
 
+    def test_pap_receives_mongo_uri_of_stack_mongo(self):
+        """pap keeps its work in Mongo (pap_* collections, lmelp-pap ADR 0004):
+        without MONGO_URI, POST /api/verifications answers 503 (issue #97)."""
+        assert "MONGO_URI=mongodb://mongo:27017" in self._pap()["environment"]
+
+    def test_pap_mongo_db_is_backend_database(self):
+        pap_env = self._pap()["environment"]
+        assert "MONGO_DB=${MONGO_DATABASE:-masque_et_la_plume}" in pap_env
+        backend_env = self._services()["backend"]["environment"]
+        assert (
+            "MONGODB_URL=mongodb://mongo:27017/${MONGO_DATABASE:-masque_et_la_plume}"
+            in backend_env
+        )
+
+    def test_pap_compose_block_no_longer_says_mongo_unused(self):
+        content = Path("docker-compose.yml").read_text()
+        block = content.split("\n  pap:\n", 1)[1].split("\nnetworks:", 1)[0]
+        assert "pas encore utilisé" not in block
+
+    def test_configuration_doc_documents_pap_mongo_variables(self):
+        doc = Path("docs/user/configuration.md").read_text()
+        section = doc.split("## Variables de l'appli pap", 1)[1].split("\n## ", 1)[0]
+        assert "MONGO_URI" in section
+        assert "MONGO_DB" in section
+        assert "pap_" in section
+
     def test_pap_keeps_image_healthcheck(self):
         """The image declares HEALTHCHECK on GET /health: not overridden here."""
         assert "healthcheck" not in self._pap()
@@ -989,3 +1015,10 @@ class TestPapNasDocumentation:
         step = self._section(Path(self.DOC).read_text(), "Étape 9")
         assert "`pap`" in step
         assert "1027:1027" in step
+
+    def test_step9_checks_pap_maturity_is_active(self):
+        """MONGO_URI set: /api/donnees reports maturite_active (issue #97)."""
+        step = self._section(Path(self.DOC).read_text(), "Étape 9")
+        nas_port = TestPapService._env_value(".env.nas.example", "PAP_PORT")
+        assert f":{nas_port}/api/donnees" in step
+        assert "maturite_active" in step

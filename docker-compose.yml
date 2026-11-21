@@ -216,7 +216,6 @@ services:
     restart: unless-stopped
     ports:
       - "${PAP_PORT:-8090}:8090"
-    # Mongo pas encore utilisé par l'image (accès prévu par lmelp-pap#65).
     depends_on:
       - mongo
     volumes:
@@ -228,6 +227,11 @@ services:
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      # pap keeps its work (recording maturity, URL checks) in the pap_*
+      # collections of the stack database (lmelp-pap ADR 0004). Without
+      # MONGO_URI, maturity is off and POST /api/verifications answers 503.
+      - MONGO_URI=mongodb://mongo:27017
+      - MONGO_DB=${MONGO_DATABASE:-masque_et_la_plume}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     logging:
