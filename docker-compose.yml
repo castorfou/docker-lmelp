@@ -232,6 +232,10 @@ services:
       # MONGO_URI, maturity is off and POST /api/verifications answers 503.
       - MONGO_URI=mongodb://mongo:27017
       - MONGO_DB=${MONGO_DATABASE:-masque_et_la_plume}
+      # Radio France API key (GraphQL, X-Token header): people of a broadcast
+      # while listening, description of a recording. Optional: empty, pap
+      # runs without these data. The API terms forbid storing the answers.
+      - RADIOFRANCE_API_TOKEN=${RADIOFRANCE_API_TOKEN:-}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     logging:
