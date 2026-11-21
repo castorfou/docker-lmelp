@@ -40,7 +40,9 @@ créer depuis DSM (le chemin `/volume1` n'apparait pas) l'arborescence suivante:
     - `cache/` : cache des sources ;
     - `processed/` : CSV de la liste et arbitrages ;
     - `audios/` : enregistrements rapatriés, de « rapatrié » à « valide ». Le dossier
-      `/docker/lmelp/audios` du back-office reste réservé aux intégraux valides ;
+      `/docker/lmelp/audios` du back-office reste réservé aux intégraux valides :
+      `pap` le monte aussi, sur `/audios-lmelp`, pour y copier un enregistrement mis à
+      disposition de lmelp, sans en reprendre la propriété ;
     - `logs/` : logs de l'appli.
 
     Amorçage depuis un clone de lmelp-pap, avant le premier démarrage de `pap` :

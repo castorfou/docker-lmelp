@@ -330,6 +330,15 @@ autre service, ni y placer un autre volume. Les variables internes de l'image
 (`PAP_HOTE=0.0.0.0`, `PAP_PORT=8090`, `PAP_CACHE=/data/cache`,
 `PAP_DONNEES=/data/processed`) gardent leurs valeurs par défaut.
 
+pap monte aussi le dossier audio du back-office, `AUDIO_PATH` (celui que `backend` monte
+sur `/app/audios`), sur `/audios-lmelp`, et le compose lui passe
+`PAP_AUDIOS_LMELP=/audios-lmelp`. Quand un enregistrement est mis à disposition de lmelp,
+pap le copie de `PAP_PATH_HOTE/audios/<année>/<nom>` vers `AUDIO_PATH/<année>/<nom>`,
+sous le même nom, et refuse si un fichier de ce nom existe déjà. pap ne reprend pas la
+propriété de ce dossier : il appartient au back-office et doit seulement être inscriptible
+par `PUID`/`PGID`, les mêmes pour les deux services. `PAP_PATH_HOTE` et `AUDIO_PATH`
+restent deux dossiers frères, jamais l'un dans l'autre.
+
 Le compose fixe aussi l'accès de pap à MongoDB, sans variable à renseigner dans `.env` :
 
 | Variable du conteneur | Valeur | Rôle |

@@ -130,7 +130,7 @@ docker-lmelp/
 ├── data/                   # Données persistantes (non versionnées)
 │   ├── mongodb/            # Données MongoDB
 │   ├── backups/            # Backups MongoDB
-│   ├── audios/             # Fichiers audio LMELP
+│   ├── audios/             # Fichiers audio LMELP (backend, et pap pour les remises)
 │   ├── mongodb-logs/       # Logs MongoDB (mongod, backup, rotation)
 │   ├── logs/lmelp-export/  # Log de la boucle de publication de lmelp-export
 │   ├── logs/lmelp-export-state/ # État ok/échec de la publication (notifications ntfy)
