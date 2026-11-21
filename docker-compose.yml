@@ -224,6 +224,11 @@ services:
       # n'est monté que dans pap et n'est imbriqué dans aucun autre volume
       # (règle de l'issue #51, CLAUDE.md).
       - ${PAP_PATH_HOTE:-./data/pap}:/data
+      # Dossier audio du back-office (le même que backend sur /app/audios) : pap
+      # y copie un enregistrement valide, en <année>/<nom>, sans jamais écraser
+      # (lmelp-pap#81). L'entrypoint ne le chowne pas : il appartient au
+      # back-office et doit seulement être inscriptible par PUID/PGID.
+      - ${AUDIO_PATH:-./data/audios}:/audios-lmelp
     environment:
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
@@ -232,6 +237,8 @@ services:
       # MONGO_URI, maturity is off and POST /api/verifications answers 503.
       - MONGO_URI=mongodb://mongo:27017
       - MONGO_DB=${MONGO_DATABASE:-masque_et_la_plume}
+      # Where pap hands a valid recording to the back-office (mount above).
+      - PAP_AUDIOS_LMELP=/audios-lmelp
       # Radio France API key (GraphQL, X-Token header): people of a broadcast
       # while listening, description of a recording. Optional: empty, pap
       # runs without these data. The API terms forbid storing the answers.

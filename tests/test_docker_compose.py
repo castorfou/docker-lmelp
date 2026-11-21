@@ -893,8 +893,42 @@ class TestPapService:
         assert pap["networks"] == ["lmelp-network"]
         assert "mongo" in pap["depends_on"]
 
-    def test_pap_mounts_a_single_data_volume(self):
-        assert self._pap()["volumes"] == [self.PAP_VOLUME]
+    AUDIOS_LMELP_VOLUME = "${AUDIO_PATH:-./data/audios}:/audios-lmelp"
+
+    def test_pap_mounts_its_data_and_the_backoffice_audios(self):
+        assert self._pap()["volumes"] == [self.PAP_VOLUME, self.AUDIOS_LMELP_VOLUME]
+
+    def test_pap_audios_lmelp_is_the_backend_audio_folder(self):
+        """pap copies a valid recording into the back-office audio folder
+        (lmelp-pap#81, issue #99): same host source as backend's /app/audios."""
+        backend_volumes = self._services()["backend"]["volumes"]
+        source = self.AUDIOS_LMELP_VOLUME.rsplit(":", 1)[0]
+        assert f"{source}:/app/audios" in backend_volumes
+
+    def test_pap_receives_audios_lmelp_path(self):
+        assert "PAP_AUDIOS_LMELP=/audios-lmelp" in self._pap()["environment"]
+
+    @staticmethod
+    def _nested(a: str, b: str) -> bool:
+        a, b = a.rstrip("/"), b.rstrip("/")
+        return a == b or a.startswith(b + "/") or b.startswith(a + "/")
+
+    def test_pap_data_and_audio_path_defaults_not_nested(self):
+        """pap chowns /data recursively: its host folder must not contain, or be
+        inside, the back-office audio folder (issue #51 rule)."""
+        assert not self._nested("./data/pap", "./data/audios")
+
+    @pytest.mark.parametrize("env_file", [".env.example", ".env.nas.example"])
+    def test_env_examples_pap_data_and_audio_path_not_nested(self, env_file):
+        pap = self._env_value(env_file, "PAP_PATH_HOTE")
+        audio = self._env_value(env_file, "AUDIO_PATH")
+        assert not self._nested(pap, audio), f"{env_file}: {pap!r} vs {audio!r}"
+
+    def test_configuration_doc_documents_audios_lmelp_mount(self):
+        doc = Path("docs/user/configuration.md").read_text()
+        section = doc.split("## Variables de l'appli pap", 1)[1].split("\n## ", 1)[0]
+        assert "/audios-lmelp" in section
+        assert "AUDIO_PATH" in section
 
     def test_pap_data_volume_mounted_only_in_pap(self):
         for name, service in self._services().items():
