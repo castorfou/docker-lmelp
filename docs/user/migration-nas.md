@@ -297,6 +297,16 @@ Le port de destination est celui de l'appli pap (`PAP_PORT`, `8085` dans
   `curl http://<IP du NAS>:8085/api/donnees` contient `maturite_active`, et le bouton
   « Vérifier les URL des intégraux » de `/liste` aboutit (voir
   [Variables de l'appli pap](configuration.md#variables-de-lappli-pap))
+- [ ] Les arbitrages existants de pap sont dans Mongo, une seule fois par
+  installation : Portainer → *Containers* → `lmelp-pap` → *Console*, User `appuser`,
+  Command `/bin/sh` → *Connect*, puis `lmelp-pap arbitrages importer`. Le relancer ne
+  crée pas de doublon ; sans cet import, l'appli démarre sans arbitrage
+- [ ] La publication de pap est configurée : `PAP_GH_TOKEN` est renseigné dans les
+  variables de la stack Portainer, `docker logs lmelp-pap` affiche la ligne
+  `publication : … GH_TOKEN présent, ntfy …` sans le jeton, et un clic sur
+  **Publier** après un arbitrage crée un commit `chore(data): publication depuis le
+  NAS` sur `main` de `castorfou/lmelp-pap` et une notification ntfy `pap - …` (voir
+  [Variables de l'appli pap](configuration.md#variables-de-lappli-pap))
 - [:white_check_mark:] `docker exec lmelp-mongo mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"` renvoie un nombre cohérent avec l'ancienne installation (fais en root depuis le container lmelp-mongo : `mongosh masque_et_la_plume --eval "db.emissions.countDocuments()"`)
 - [:white_check_mark:] Un backup manuel fonctionne (`FORCE_BACKUP=1 /scripts/backup_mongodb.sh`, voir [Backups & Restauration](backup-restore.md))
 - [:white_check_mark:] La bibliothèque Calibre est visible depuis le back-office (lecture seule)
