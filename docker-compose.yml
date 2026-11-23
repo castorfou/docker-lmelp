@@ -243,6 +243,14 @@ services:
       # while listening, description of a recording. Optional: empty, pap
       # runs without these data. The API terms forbid storing the answers.
       - RADIOFRANCE_API_TOKEN=${RADIOFRANCE_API_TOKEN:-}
+      # Publish button: pushes the list CSVs to main of castorfou/lmelp-pap from
+      # the clone /data/depot (PAP_DEPOT_GIT, set in the image, so it lives in
+      # PAP_PATH_HOTE/depot). Own token, not lmelp-export's GH_TOKEN. Empty: the
+      # preview works, the push is refused.
+      - GH_TOKEN=${PAP_GH_TOKEN:-}
+      # Publish result notifications, same topic as backend and lmelp-export.
+      - NTFY_SERVER_URL=${NTFY_SERVER_URL:-}
+      - NTFY_TOPIC=${NTFY_TOPIC:-}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     logging:

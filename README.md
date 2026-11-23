@@ -134,7 +134,7 @@ docker-lmelp/
 │   ├── mongodb-logs/       # Logs MongoDB (mongod, backup, rotation)
 │   ├── logs/lmelp-export/  # Log de la boucle de publication de lmelp-export
 │   ├── logs/lmelp-export-state/ # État ok/échec de la publication (notifications ntfy)
-│   ├── pap/                # Données de l'appli pap (cache, processed, audios, logs)
+│   ├── pap/                # Données de l'appli pap (cache, processed, audios, logs, depot)
 │   ├── pgx-keys/           # Clé SSH PGX historique (optionnel)
 │   └── pgx-keys-backend/   # Clé SSH dédiée à la transcription PGX (backend, optionnel)
 └── docs/                   # Documentation MkDocs

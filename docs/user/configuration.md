@@ -367,6 +367,31 @@ d'utilisation de l'API interdisent de conserver ses réponses : pap ne les écri
 part. La clé est un secret : elle reste dans `.env` (ou les variables de la stack
 Portainer), jamais dans un fichier commité.
 
+Le bouton **Publier** de pap commite les CSV de la liste dans un clone git, `/data/depot`
+du conteneur (`PAP_DEPOT_GIT`, fixé dans l'image), soit `PAP_PATH_HOTE/depot` sur l'hôte,
+puis les pousse sur la branche `main` de `castorfou/lmelp-pap`. Le push utilise un jeton
+GitHub propre à pap, à renseigner dans `.env` :
+
+```bash
+# Jeton GitHub à granularité fine (contents:write sur castorfou/lmelp-pap seul)
+PAP_GH_TOKEN=
+```
+
+Le compose le transmet au conteneur sous le nom `GH_TOKEN`. Pour le créer : GitHub →
+*Settings* → *Developer settings* → *Fine-grained tokens* → *Generate new token* ;
+*Repository access* : *Only select repositories* → `castorfou/lmelp-pap` ;
+*Permissions* → *Contents* : *Read and write*, rien d'autre. Le `GH_TOKEN` de
+`lmelp-export`, limité à `castorfou/lmelp-mobile`, ne convient pas. Sans jeton, l'aperçu
+de la publication fonctionne mais le push est refusé. Le jeton est un secret : il reste
+dans `.env` (ou les variables de la stack Portainer), jamais dans un fichier commité.
+
+pap notifie le résultat de chaque publication (titres `pap - …`) sur le même topic ntfy
+que le back-office et `lmelp-export` : le compose lui passe `NTFY_SERVER_URL` et
+`NTFY_TOPIC` (section [Variables Back-Office](#variables-back-office)). Au démarrage, `docker logs
+lmelp-pap` affiche une ligne `publication : vers https://github.com/castorfou/lmelp-pap.git
+(main), clone /data/depot, GH_TOKEN présent, ntfy …` qui résume cette configuration sans
+afficher le jeton.
+
 Ces variables font partie de la configuration du conteneur : Watchtower ne les applique
 pas. Après une mise à jour du compose, redéployer le service (`docker compose up -d pap`,
 ou « Update the stack » dans Portainer).
